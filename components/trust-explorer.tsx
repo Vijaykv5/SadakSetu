@@ -14,15 +14,9 @@ import {
   ShieldCheck,
   UsersRound,
 } from "lucide-react";
-import { DEMO_TRUST_ENTITIES } from "@/lib/demo-data";
+import type { ArkivRegistry } from "@/lib/arkiv/registry";
 
-type NetworkResult = {
-  status: "connected" | "unavailable";
-  network: string;
-  chainId: number;
-  blockScoped: boolean;
-  entities: unknown[];
-};
+type NetworkResult = ArkivRegistry;
 
 const FILTERS = ["all", "issuer", "lender_policy", "revocation_root", "circuit_release"] as const;
 
@@ -38,7 +32,7 @@ async function fetchRegistryStatus(): Promise<NetworkResult> {
     const response = await fetch("/api/arkiv/trust", { cache: "no-store" });
     return (await response.json()) as NetworkResult;
   } catch {
-    return { status: "unavailable", network: "Tiramisu", chainId: 7_738_577, blockScoped: false, entities: [] };
+    return { status: "unavailable", network: "Tiramisu", chainId: 7_738_577, blockScoped: false, blockNumber: null, issuers: [], policies: [], revocationRoots: [], circuitReleases: [], entities: [], issues: [] };
   }
 }
 
@@ -64,12 +58,12 @@ export function TrustExplorer() {
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return DEMO_TRUST_ENTITIES.filter((entity) => {
+    return (network?.entities ?? []).filter((entity) => {
       const matchesType = filter === "all" || entity.type === filter;
       const matchesSearch = !query || `${entity.title} ${entity.key} ${entity.owner}`.toLowerCase().includes(query);
       return matchesType && matchesSearch;
     });
-  }, [filter, search]);
+  }, [filter, search, network]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 md:px-6 md:py-14 lg:px-8">
@@ -94,7 +88,7 @@ export function TrustExplorer() {
           <div className="bg-card p-5"><p className="text-xs text-muted-foreground">Chain ID</p><p className="mt-2 font-mono font-medium tabular-nums">{network?.chainId ?? "7738577"}</p></div>
           <div className="bg-card p-5"><p className="text-xs text-muted-foreground">Live matching entities</p><p className="mt-2 font-mono font-medium tabular-nums">{loading ? "--" : network?.entities.length ?? 0}</p></div>
         </div>
-        <div className="mt-3 flex items-start gap-2 text-xs leading-5 text-muted-foreground"><CircleAlert aria-hidden="true" className="mt-0.5 shrink-0" size={14} /><p>The connection is live. The records below are samples until Nivra publishes them through an authorized wallet.</p></div>
+          <div className="mt-3 flex items-start gap-2 text-xs leading-5 text-muted-foreground"><CircleAlert aria-hidden="true" className="mt-0.5 shrink-0" size={14} /><p>{network?.blockNumber ? `All records are validated at Arkiv block ${network.blockNumber}.` : "No verified Arkiv records are available."}</p></div>
       </section>
 
       <section className="panel overflow-hidden page-enter" style={{ "--enter-delay": "140ms" } as React.CSSProperties}>
@@ -116,7 +110,7 @@ export function TrustExplorer() {
             {filtered.map((entity) => (
               <article key={entity.key} className="grid gap-5 p-5 md:grid-cols-[1.1fr_1fr_auto] md:items-start md:p-6">
                 <div>
-                  <div className="flex flex-wrap items-center gap-2"><span className="status status-neutral">{entity.type.replace("_", " ")}</span><span className="status status-warning">Sample record</span></div>
+                  <div className="flex flex-wrap items-center gap-2"><span className="status status-neutral">{entity.type.replace("_", " ")}</span><span className="status status-success">Arkiv record</span></div>
                   <h2 className="mt-3 font-bold">{entity.title}</h2>
                   <p className="mt-2 font-mono text-xs text-muted-foreground">{entity.key}</p>
                 </div>
@@ -126,8 +120,8 @@ export function TrustExplorer() {
                   <div><dt className="text-muted-foreground">Expiry</dt><dd className="mt-1 font-mono">{entity.expiresAt}</dd></div>
                 </dl>
                 <div className="md:text-right">
-                  <span className="status status-success"><BadgeCheck aria-hidden="true" size={14} /> Owner matches fixture</span>
-                  <p className="mt-3 text-xs text-muted-foreground">Explorer link appears after publication</p>
+                  <span className="status status-success"><BadgeCheck aria-hidden="true" size={14} /> Owner verified</span>
+                  <p className="mt-3 text-xs text-muted-foreground">Validated at the query block</p>
                 </div>
                 <div className="md:col-span-3 flex flex-wrap gap-2 border-t border-border pt-4">
                   {Object.entries(entity.details).map(([key, value]) => <span key={key} className="rounded-md bg-muted px-2.5 py-1.5 font-mono text-xs"><span className="text-muted-foreground">{key}=</span>{value}</span>)}

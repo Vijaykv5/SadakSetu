@@ -65,7 +65,7 @@ export async function makeCircuitInput(args: {
     issuerKeyVersion: credential.issuerKeyVersion.toString(),
     policyHash: await policyHash(policy),
     circuitVersion: CIRCUIT_VERSION.toString(),
-    revocationRoot: revocation.root,
+    revocationRoot: credential.revocationRoot || revocation.root,
     revocationEpoch: credential.revocationEpoch.toString(),
     challenge,
     verifierDomain: policy.lenderField,
@@ -94,8 +94,11 @@ export async function makeCircuitInput(args: {
   };
 }
 
-export function createChallenge() {
+export function createChallenge(registryBlock?: string) {
   const bytes = crypto.getRandomValues(new Uint8Array(8));
-  return bytes.reduce((acc, byte) => (acc << 8n) + BigInt(byte), 0n).toString();
+  const nonce = bytes.reduce((acc, byte) => (acc << 8n) + BigInt(byte), 0n);
+  return ((nonce << 64n) | BigInt(registryBlock ?? "0")).toString();
 }
+
+export function challengeBlock(challenge: string) { return (BigInt(challenge) & ((1n << 64n) - 1n)).toString(); }
 

@@ -1,11 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { groth16 } from "snarkjs";
-import { POST as issueCredential } from "../app/api/credential/route";
-import { DEMO_METRICS, POLICIES } from "../lib/demo-data";
+import { createHash, randomBytes } from "node:crypto";
+import { buildEddsa, buildPoseidon } from "circomlibjs";
+import { DEMO_ISSUER, DEMO_METRICS, POLICIES } from "../lib/demo-data";
 import {
   createChallenge,
   createHolderSecret,
   holderCommitment,
+  emptyRevocationWitness,
   isPolicyEligible,
   makeCircuitInput,
 } from "../lib/zk";
@@ -14,14 +16,13 @@ import type { SignedCredential } from "../lib/types";
 async function main() {
   const secret = await createHolderSecret();
   const commitment = await holderCommitment(secret);
-  const response = await issueCredential(
-    new Request("http://localhost/api/credential", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ holderCommitment: commitment, metrics: DEMO_METRICS }),
-    }),
-  );
-  const { credential } = (await response.json()) as { credential: SignedCredential };
+  const eddsa = await buildEddsa(); const poseidon = await buildPoseidon();
+  const privateKey = createHash("sha256").update("local-proof-test-only").digest(); const publicKey = eddsa.prv2pub(privateKey);
+  const credentialId = BigInt(`0x${randomBytes(8).toString("hex")}`).toString();
+  const partA = poseidon([BigInt(commitment), BigInt(DEMO_METRICS.averageMonthlyInflowPaise), BigInt(DEMO_METRICS.existingMonthlyObligationsPaise), BigInt(DEMO_METRICS.activeIncomeMonths), BigInt(DEMO_METRICS.measurementStartDay), BigInt(DEMO_METRICS.measurementEndDay)]);
+  const partB = poseidon([BigInt(DEMO_METRICS.credentialExpiryDay), BigInt(credentialId), 1n, 12n]); const message = poseidon([eddsa.F.toObject(partA), eddsa.F.toObject(partB)]); const signature = eddsa.signPoseidon(privateKey, message);
+  const revocationRoot = (await emptyRevocationWitness()).root;
+  const credential: SignedCredential = { ...DEMO_METRICS, issuerId: DEMO_ISSUER.id, issuerKeyVersion: 1, holderCommitment: commitment, credentialId, revocationEpoch: 12, revocationRoot, issuerEntityKey: "0x00", revocationRootEntityKey: "0x00", issuerPublicKey: { x: eddsa.F.toObject(publicKey[0]).toString(), y: eddsa.F.toObject(publicKey[1]).toString() }, signature: { r8x: eddsa.F.toObject(signature.R8[0]).toString(), r8y: eddsa.F.toObject(signature.R8[1]).toString(), s: signature.S.toString() }, scheme: "BabyJubJub-EdDSA-Poseidon" };
   const policy = POLICIES[0];
   const verificationDay = 20_741;
 

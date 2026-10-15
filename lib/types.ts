@@ -13,6 +13,9 @@ export type SignedCredential = CredentialMetrics & {
   holderCommitment: string;
   credentialId: string;
   revocationEpoch: number;
+  revocationRoot: string;
+  issuerEntityKey: string;
+  revocationRootEntityKey: string;
   issuerPublicKey: { x: string; y: string };
   signature: { r8x: string; r8y: string; s: string };
   scheme: "BabyJubJub-EdDSA-Poseidon";
@@ -50,6 +53,11 @@ export type QualificationDecision = {
   createdAt: string;
   engine: "groth16-bn128";
   circuitVersion: 1;
+  registryBlock: string;
+  policyEntityKey: string;
+  issuerEntityKey: string;
+  revocationRootEntityKey: string;
+  verificationKeyHash: string;
 };
 
 export type TrustEntity = {

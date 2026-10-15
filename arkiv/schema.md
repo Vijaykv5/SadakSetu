@@ -2,7 +2,7 @@
 
 Network: Tiramisu (`7738577`)  
 SDK: `@arkiv-network/sdk@0.8.1`  
-Integration status: read-only query implemented; project writes intentionally pending an authorized wallet.
+Integration status: live, wallet-approved publishing plus block-pinned reads.
 
 Nivra stores public coordination and trust data on Arkiv. It never stores a borrower, credential, proof, nullifier, decision, bank transaction, or application record.
 
@@ -135,11 +135,16 @@ The implemented route uses the pinned SDK and performs a bounded query per entit
 
 ```ts
 const page = await client
-  .select({ key: true, owner: true, creator: true, attributes: true, payload: true })
-  .where(and(eq("entity_type", "lender_policy"), eq("status", "active")))
+  .select({ key: true, owner: true, creator: true, expiresAt: true, attributes: true, payload: true })
+  .where(eq("entity_type", str("lender_policy")))
+  .atBlock(registryBlock)
   .limit(20)
   .fetch();
 ```
 
-Consumers must validate the entity owner, status, version, expiry, canonical policy hash, accepted issuer, and circuit release before accepting a proof.
+Consumers must validate the entity owner, status, version, expiry, canonical policy hash, accepted issuer, and circuit release before accepting a proof. Nivra queries all four types at one block and places that block plus the entity keys in the browser decision. The lender re-reads the same block before accepting a proof.
+
+## Wallet publishing
+
+The issuer screen publishes `issuer`, `revocation_root`, and `circuit_release`. The lender screen publishes `lender_policy`. Each action uses the connected EIP-1193 wallet on Tiramisu, shows the exact entity payload in the UI, and waits for one explicit wallet approval. Nivra never receives a private key and never retries a rejected transaction.
 

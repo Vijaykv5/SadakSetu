@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BadgeCheck,
   Check,
@@ -12,10 +12,12 @@ import {
   Send,
   ShieldCheck,
 } from "lucide-react";
-import { POLICIES } from "@/lib/demo-data";
+import type { ArkivRegistry } from "@/lib/arkiv/registry";
 import { formatInrFromPaise, formatPercentFromBps } from "@/lib/format";
 import type { QualificationDecision } from "@/lib/types";
 import { useSessionJson } from "@/lib/use-session-json";
+import { challengeBlock } from "@/lib/zk";
+import { LenderArkivPublisher } from "@/components/arkiv-publisher";
 
 type VerificationState = "idle" | "verifying" | "valid" | "invalid";
 
@@ -23,11 +25,18 @@ export function LenderDashboard() {
   const decision = useSessionJson<QualificationDecision>("nivra:decision");
   const [verification, setVerification] = useState<VerificationState>("idle");
   const [draftSaved, setDraftSaved] = useState(false);
+  const [registry, setRegistry] = useState<ArkivRegistry | null>(null);
+  useEffect(() => { fetch("/api/arkiv/trust", { cache: "no-store" }).then((response) => response.json()).then((body: ArkivRegistry) => setRegistry(body)).catch(() => setRegistry(null)); }, []);
 
   async function verifyProof() {
     if (!decision?.proof || decision.publicSignals.length === 0) return;
     setVerification("verifying");
     try {
+      if (!decision.registryBlock || !registry || registry.status !== "connected") throw new Error("Arkiv registry is unavailable.");
+      const pinned = await fetch(`/api/arkiv/trust?block=${encodeURIComponent(decision.registryBlock)}`, { cache: "no-store" });
+      if (!pinned.ok) throw new Error("The exact Arkiv verification block could not be read.");
+      const pinnedRegistry = (await pinned.json()) as ArkivRegistry;
+      if (challengeBlock(decision.challenge) !== decision.registryBlock || pinnedRegistry.blockNumber !== decision.registryBlock || !pinnedRegistry.policies.some((policy) => policy.arkivEntityKey === decision.policyEntityKey) || !pinnedRegistry.issuers.some((issuer) => issuer.key === decision.issuerEntityKey) || !pinnedRegistry.revocationRoots.some((root) => root.key === decision.revocationRootEntityKey)) throw new Error("The proof is not bound to the same Arkiv records.");
       const [{ groth16 }, verificationKey] = await Promise.all([
         import("snarkjs"),
         fetch("/circuits/verification_key.json").then((response) => response.json()),
@@ -121,7 +130,7 @@ export function LenderDashboard() {
               <table className="w-full min-w-[680px] text-left text-sm">
                 <thead className="bg-muted text-xs text-muted-foreground"><tr><th className="px-5 py-3 font-medium">Product</th><th className="px-5 py-3 font-medium">Min inflow</th><th className="px-5 py-3 font-medium">Max FOIR</th><th className="px-5 py-3 font-medium">Version</th><th className="px-5 py-3 font-medium">Status</th></tr></thead>
                 <tbody>
-                  {POLICIES.map((policy) => (
+                  {(registry?.policies ?? []).map((policy) => (
                     <tr key={policy.id} className="border-t border-border first:border-t-0">
                       <td className="px-5 py-4"><p className="font-bold">{policy.productName}</p><p className="mt-0.5 text-xs text-muted-foreground">{policy.lenderName}</p></td>
                       <td className="px-5 py-4 font-mono tabular-nums">{formatInrFromPaise(policy.minAverageInflowPaise)}</td>
@@ -158,6 +167,7 @@ export function LenderDashboard() {
           </section>
         </aside>
       </div>
+      <LenderArkivPublisher />
     </div>
   );
 }

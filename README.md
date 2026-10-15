@@ -6,7 +6,7 @@ This is not anonymous lending and it does not approve or disburse loans. An elig
 
 ## Product sandbox
 
-- `/borrower` creates a sample issuer-signed income credential and checks a loan rule in the browser.
+- `/borrower` fetches the verified Arkiv registry, creates an issuer-signed income credential, and checks a loan rule in the browser.
 - `/lender` verifies the result without receiving the borrower's income values.
 - `/issuer` shows income proof issuance plus key rotation and revocation.
 - `/trust` queries Arkiv Tiramisu and shows which registry records are public.
@@ -21,6 +21,8 @@ Requirements: Node.js 22+, Bun 1.3+, and a modern browser.
 bun install
 bun dev
 ```
+
+For live Arkiv mode, copy `.env.example` to `.env.local`, set the three authorized Tiramisu owner addresses, and provide the server-only issuer signing secret. Without those values the app deliberately stops before issuing credentials or accepting proofs. Publishing still requires the matching browser wallet to approve each transaction.
 
 Open `http://localhost:3000`. No wallet or live bank account is required for the sandbox.
 
@@ -45,7 +47,7 @@ The app pins `@arkiv-network/sdk@0.8.1` and queries Tiramisu (`7738577`) through
 - revocation roots and epochs;
 - approved circuit releases and verification-key hashes.
 
-The trust screen labels project records as samples because no authorized Nivra wallet has published them yet. Its RPC connectivity check and entity queries are live. See [arkiv/schema.md](arkiv/schema.md) for the model.
+The issuer and lender screens publish the four records with explicit wallet approval. Borrower and lender verification fail closed until all required records are present, owner-validated, and consistent at one Arkiv block. See [arkiv/schema.md](arkiv/schema.md) for the model.
 
 ## Privacy boundary
 
@@ -63,7 +65,7 @@ Sent to the lender during a sandbox check:
 - lender domain, one-time challenge, circuit version, and short expiry;
 - Boolean qualification result.
 
-Written to Arkiv by this application: nothing. The current integration is read-only and fails closed when RPC access is unavailable.
+Written to Arkiv by this application: only issuer, lender policy, revocation root, and circuit release metadata. No borrower, credential, proof, or application data is written. Reads and proof verification fail closed when Arkiv or the configured owner allow-list is unavailable.
 
 ## Security limitations
 

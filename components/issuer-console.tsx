@@ -16,6 +16,7 @@ import { DEMO_ISSUER } from "@/lib/demo-data";
 import { formatInrFromPaise, shortenHex } from "@/lib/format";
 import type { SignedCredential } from "@/lib/types";
 import { useSessionJson } from "@/lib/use-session-json";
+import { IssuerArkivPublisher } from "@/components/arkiv-publisher";
 
 export function IssuerConsole() {
   const storedCredential = useSessionJson<{ credential: SignedCredential }>("nivra:credential");
@@ -108,6 +109,7 @@ export function IssuerConsole() {
           </section>
         </aside>
       </div>
+      <IssuerArkivPublisher />
     </div>
   );
 }

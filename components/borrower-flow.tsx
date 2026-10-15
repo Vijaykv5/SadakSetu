@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   BadgeCheck,
@@ -18,7 +18,8 @@ import {
   RotateCcw,
   ShieldCheck,
 } from "lucide-react";
-import { DEMO_ISSUER, DEMO_METRICS, POLICIES } from "@/lib/demo-data";
+import { DEMO_METRICS } from "@/lib/demo-data";
+import type { ArkivRegistry } from "@/lib/arkiv/registry";
 import { formatInr, formatInrFromPaise, formatPercentFromBps, todayAsEpochDay } from "@/lib/format";
 import type { QualificationDecision, SignedCredential } from "@/lib/types";
 import {
@@ -41,16 +42,20 @@ type ProofState = "idle" | "issuing" | "ready" | "proving" | "done" | "error";
 */
 export function BorrowerFlow() {
   const [connected, setConnected] = useState(false);
+  const [registry, setRegistry] = useState<ArkivRegistry | null>(null);
   const [credential, setCredential] = useState<SignedCredential | null>(null);
   const [holderSecretValue, setHolderSecretValue] = useState("");
-  const [selectedPolicyId, setSelectedPolicyId] = useState(POLICIES[0].id);
+  const [selectedPolicyId, setSelectedPolicyId] = useState("");
   const [state, setState] = useState<ProofState>("idle");
   const [decision, setDecision] = useState<QualificationDecision | null>(null);
   const [error, setError] = useState("");
   const selectedPolicy = useMemo(
-    () => POLICIES.find((policy) => policy.id === selectedPolicyId) ?? POLICIES[0],
-    [selectedPolicyId],
+    () => registry?.policies.find((policy) => policy.id === selectedPolicyId) ?? registry?.policies[0],
+    [registry, selectedPolicyId],
   );
+  const activePolicy = selectedPolicy ?? registry?.policies[0];
+
+  useEffect(() => { fetch("/api/arkiv/trust", { cache: "no-store" }).then((response) => response.json()).then((body: ArkivRegistry) => { setRegistry(body); if (body.policies[0]) setSelectedPolicyId(body.policies[0].id); }).catch(() => setRegistry(null)); }, []);
 
   async function issueCredential() {
     setState("issuing");
@@ -64,7 +69,8 @@ export function BorrowerFlow() {
         body: JSON.stringify({ holderCommitment: commitment, metrics: DEMO_METRICS }),
       });
       if (!response.ok) throw new Error("The mock issuer could not create a credential.");
-      const body = (await response.json()) as { credential: SignedCredential };
+      const body = (await response.json()) as { credential?: SignedCredential; error?: string };
+      if (!body.credential) throw new Error(body.error ?? "The Arkiv issuer could not create a credential.");
       setCredential(body.credential);
       setHolderSecretValue(secret);
       sessionStorage.setItem("nivra:credential", JSON.stringify({ credential: body.credential, holderSecret: secret }));
@@ -76,11 +82,16 @@ export function BorrowerFlow() {
   }
 
   async function checkPrivately() {
-    if (!credential || !holderSecretValue) return;
+    const circuit = registry?.circuitReleases.find((release) => release.circuitId === "nivra-prequal" && release.status === "approved");
+    if (!credential || !holderSecretValue || !selectedPolicy || !registry || registry.status !== "connected" || !registry.blockNumber || !circuit || !selectedPolicy.acceptedIssuerIds.includes(credential.issuerId)) {
+      setError("Arkiv trust records are unavailable. The check stopped without using financial data.");
+      setState("error");
+      return;
+    }
     setDecision(null);
     setError("");
     const verificationDay = todayAsEpochDay();
-    const challenge = createChallenge();
+    const challenge = createChallenge(registry.blockNumber);
 
     if (!isPolicyEligible(credential, selectedPolicy, verificationDay)) {
       const failedDecision: QualificationDecision = {
@@ -95,6 +106,11 @@ export function BorrowerFlow() {
         createdAt: new Date().toISOString(),
         engine: "groth16-bn128",
         circuitVersion: CIRCUIT_VERSION,
+        registryBlock: registry.blockNumber,
+        policyEntityKey: selectedPolicy.arkivEntityKey,
+        issuerEntityKey: credential.issuerEntityKey,
+        revocationRootEntityKey: credential.revocationRootEntityKey,
+        verificationKeyHash: circuit.verificationKeyHash,
       };
       setDecision(failedDecision);
       sessionStorage.setItem("nivra:decision", JSON.stringify(failedDecision));
@@ -133,6 +149,11 @@ export function BorrowerFlow() {
         createdAt: new Date().toISOString(),
         engine: "groth16-bn128",
         circuitVersion: CIRCUIT_VERSION,
+        registryBlock: registry.blockNumber,
+        policyEntityKey: selectedPolicy.arkivEntityKey,
+        issuerEntityKey: credential.issuerEntityKey,
+        revocationRootEntityKey: credential.revocationRootEntityKey,
+        verificationKeyHash: circuit.verificationKeyHash,
       };
       setDecision(nextDecision);
       sessionStorage.setItem("nivra:decision", JSON.stringify(nextDecision));
@@ -234,7 +255,7 @@ export function BorrowerFlow() {
                 </div>
                 <div className="text-left md:text-right">
                   <p className="text-xs text-muted-foreground">Issuer</p>
-                  <p className="mt-1 text-sm font-bold">{DEMO_ISSUER.name}</p>
+                  <p className="mt-1 text-sm font-bold">{registry?.issuers[0]?.displayName ?? "Arkiv issuer"}</p>
                 </div>
               </div>
               <div className="mt-6 grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3">
@@ -251,9 +272,9 @@ export function BorrowerFlow() {
               </div>
               <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="flex items-center gap-2 text-xs text-muted-foreground"><LockKeyhole aria-hidden="true" size={14} /> A private key is created in this browser.</p>
-                <button type="button" className="button-primary" onClick={issueCredential} disabled={state === "issuing"}>
+                <button type="button" className="button-primary" onClick={issueCredential} disabled={state === "issuing" || registry?.status !== "connected"}>
                   {state === "issuing" ? <LoaderCircle aria-hidden="true" className="animate-spin" size={16} /> : <FileKey2 aria-hidden="true" size={16} />}
-                  {state === "issuing" ? "Creating income proof…" : "Create income proof"}
+                  {state === "issuing" ? "Creating income proof…" : registry?.status === "connected" ? "Create income proof" : "Waiting for Arkiv trust records"}
                 </button>
               </div>
             </section>
@@ -275,7 +296,7 @@ export function BorrowerFlow() {
                   <p className="text-sm text-muted-foreground">This does not start an application.</p>
                 </div>
                 <div className="mt-5 grid gap-4 xl:grid-cols-3">
-                  {POLICIES.map((policy) => {
+                  {(registry?.policies ?? []).map((policy) => {
                     const selected = selectedPolicyId === policy.id;
                     return (
                       <button
@@ -307,7 +328,7 @@ export function BorrowerFlow() {
                     </ul>
                   </div>
                   <div className="border-t border-border p-6 lg:border-l lg:border-t-0 lg:p-8">
-                    <button type="button" className="button-primary w-full whitespace-nowrap lg:w-auto" onClick={checkPrivately} disabled={state === "proving"}>
+                    <button type="button" className="button-primary w-full whitespace-nowrap lg:w-auto" onClick={checkPrivately} disabled={state === "proving" || !activePolicy || registry?.status !== "connected"}>
                       {state === "proving" ? <LoaderCircle aria-hidden="true" className="animate-spin" size={17} /> : <Fingerprint aria-hidden="true" size={17} />}
                       {state === "proving" ? "Checking in this browser…" : "Check my fit"}
                     </button>
@@ -327,7 +348,7 @@ export function BorrowerFlow() {
                     <h2 className="mt-4 text-2xl font-bold tracking-[-0.035em]">{decision.productName}</h2>
                     <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{decision.qualified ? "You can continue to the lender without sending your full bank history at this stage. Final approval still needs KYC and underwriting." : "Nothing was sent to the lender. You can check another loan or return when your income profile changes."}</p>
                   </div>
-                  {decision.qualified && <div className="rounded-xl bg-card p-4 text-sm"><p className="text-muted-foreground">Loan band</p><p className="mt-1 font-mono text-lg font-medium">{formatInr(selectedPolicy.loanBand[0])}–{formatInr(selectedPolicy.loanBand[1])}</p></div>}
+                  {decision.qualified && activePolicy && <div className="rounded-xl bg-card p-4 text-sm"><p className="text-muted-foreground">Loan band</p><p className="mt-1 font-mono text-lg font-medium">{formatInr(activePolicy.loanBand[0])}–{formatInr(activePolicy.loanBand[1])}</p></div>}
                 </div>
               </div>
               <div className="grid gap-px bg-border sm:grid-cols-3">
