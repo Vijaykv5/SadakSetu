@@ -1,5 +1,6 @@
 import { buildPoseidon } from "circomlibjs";
 import type { LoanPolicy, SignedCredential } from "@/lib/types";
+export { isPolicyEligible } from "@/lib/eligibility";
 
 export const CIRCUIT_VERSION = 1 as const;
 export const REVOCATION_EPOCH = 12;
@@ -47,20 +48,6 @@ export async function emptyRevocationWitness() {
     current = await poseidonHash([current, current]);
   }
   return { root: current, siblings };
-}
-
-export function isPolicyEligible(credential: SignedCredential, policy: LoanPolicy, verificationDay: number) {
-  const totalObligations = credential.existingMonthlyObligationsPaise + policy.proposedEmiPaise;
-  const foirPass = totalObligations * 10_000 <= credential.averageMonthlyInflowPaise * policy.maxFoirBps;
-  return (
-    credential.averageMonthlyInflowPaise >= policy.minAverageInflowPaise &&
-    credential.activeIncomeMonths >= policy.minActiveMonths &&
-    foirPass &&
-    credential.measurementStartDay <= credential.measurementEndDay &&
-    credential.measurementEndDay <= verificationDay &&
-    verificationDay <= credential.measurementEndDay + policy.maxCredentialAgeDays &&
-    verificationDay <= credential.credentialExpiryDay
-  );
 }
 
 export async function makeCircuitInput(args: {

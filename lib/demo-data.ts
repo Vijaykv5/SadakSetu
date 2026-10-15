@@ -11,9 +11,9 @@ export const DEMO_METRICS: CredentialMetrics = {
   averageMonthlyInflowPaise: 6_840_000,
   existingMonthlyObligationsPaise: 1_280_000,
   activeIncomeMonths: 6,
-  measurementStartDay: 20_259,
-  measurementEndDay: 20_439,
-  credentialExpiryDay: 20_530,
+  measurementStartDay: 20_558,
+  measurementEndDay: 20_736,
+  credentialExpiryDay: 20_831,
 };
 
 export const POLICIES: LoanPolicy[] = [

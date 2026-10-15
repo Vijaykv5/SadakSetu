@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Nivra
 
-## Getting Started
+Nivra is an early lending product for Indian gig workers and self-employed borrowers. It checks whether verified cash flow meets a lender's starting rules without sending full bank statements during the first step.
 
-First, run the development server:
+This is not anonymous lending and it does not approve or disburse loans. An eligible result is a conditional pre-qualification. A real lender must still perform KYC, fraud checks, credit assessment, consented data collection, and regulated underwriting.
+
+## Product sandbox
+
+- `/borrower` creates a sample issuer-signed income credential and checks a loan rule in the browser.
+- `/lender` verifies the result without receiving the borrower's income values.
+- `/issuer` shows income proof issuance plus key rotation and revocation.
+- `/trust` queries Arkiv Tiramisu and shows which registry records are public.
+
+The circuit verifies Baby Jubjub EdDSA over Poseidon, holder-secret binding, unsigned ranges, minimum cash flow, active income months, FOIR, recency, expiry, a sparse non-revocation root, lender domain, exact policy hash, circuit version, and one-time challenge.
+
+## Run locally
+
+Requirements: Node.js 22+, Bun 1.3+, and a modern browser.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
+bun install
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`. No wallet or live bank account is required for the sandbox.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Verify the implementation
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+bun run lint
+bun run typecheck
+bun test
+bun run proof:test
+bun run build
+```
 
-## Learn More
+`proof:test` issues a real Baby Jubjub credential, generates and verifies a Groth16 proof, rejects a tampered public input, and confirms an ineligible witness cannot produce a proof.
 
-To learn more about Next.js, take a look at the following resources:
+## Arkiv integration
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The app pins `@arkiv-network/sdk@0.8.1` and queries Tiramisu (`7738577`) through a server route. Arkiv holds these public verification records:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- issuer public keys and key versions;
+- lender policies and canonical policy commitments;
+- revocation roots and epochs;
+- approved circuit releases and verification-key hashes.
 
-## Deploy on Vercel
+The trust screen labels project records as samples because no authorized Nivra wallet has published them yet. Its RPC connectivity check and entity queries are live. See [arkiv/schema.md](arkiv/schema.md) for the model.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Privacy boundary
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Stored only in the borrower's browser session:
+
+- exact income and obligations;
+- holder secret and credential identifier;
+- issuer signature and complete credential;
+- proof witness and generated proof.
+
+Sent to the lender during a sandbox check:
+
+- Groth16 proof and public signals;
+- issuer key/version, policy commitment, revocation root/epoch;
+- lender domain, one-time challenge, circuit version, and short expiry;
+- Boolean qualification result.
+
+Written to Arkiv by this application: nothing. The current integration is read-only and fails closed when RPC access is unavailable.
+
+## Security limitations
+
+- The proving setup uses a single contributor and is not production safe.
+- The circuit and dependencies are unaudited.
+- Session storage protects against routine persistence, not XSS or a compromised device.
+- An issuer may correlate credential issuance timing with later activity outside the protocol.
+- ZK hides witness values, not IP addresses, device fingerprints, request timing, or identity disclosed during later KYC.
+- The deterministic fallback issuer secret is for a clearly labeled local mock only. Production must use managed signing infrastructure and explicit key rotation.
+
+## Project structure
+
+```text
+app/                 Next.js routes and server handlers
+components/          Role-specific interactive interfaces
+circuits/            Circom source
+public/circuits/     Browser proving and verification artifacts
+lib/                 Policies, types, formatting, and proof input construction
+arkiv/               Public entity model and integration notes
+scripts/             End-to-end proof verification
+```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+

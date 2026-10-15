@@ -4,8 +4,6 @@ import { DEMO_ISSUER } from "@/lib/demo-data";
 import { REVOCATION_EPOCH } from "@/lib/zk";
 import type { CredentialMetrics, SignedCredential } from "@/lib/types";
 
-export const runtime = "nodejs";
-
 const MAX_PAISE = 10_000_000_000;
 
 function isValidMetrics(value: unknown): value is CredentialMetrics {

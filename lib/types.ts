@@ -43,7 +43,7 @@ export type QualificationDecision = {
   lenderName: string;
   productName: string;
   qualified: boolean;
-  proof: object | null;
+  proof: Groth16Proof | null;
   publicSignals: string[];
   challenge: string;
   proofExpiresDay: number;
@@ -63,4 +63,6 @@ export type TrustEntity = {
   details: Record<string, string>;
   source: "arkiv" | "demo-fixture";
 };
+
+import type { Groth16Proof } from "snarkjs";
 
