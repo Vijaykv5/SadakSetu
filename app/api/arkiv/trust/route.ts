@@ -6,6 +6,7 @@ import { str } from "@arkiv-network/sdk/attr";
 import { eq } from "@arkiv-network/sdk/query";
 import { http } from "viem";
 import { policyHash } from "@/lib/zk";
+import { matchesCreationPolicy } from "@/lib/arkiv/creation-policy";
 import { ARKIV_CHAIN_ID, ARKIV_NETWORK, ENTITY_TYPES, emptyRegistry, numberAttr, toTrustEntity, type ArkivCircuitRecord, type ArkivIssuerRecord, type ArkivPolicyRecord, type ArkivRevocationRecord, type ArkivRegistry } from "@/lib/arkiv/registry";
 
 const RPC_URL = "https://rpc.tiramisu.db-chain.testnet.arkiv.network";
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
   try {
     const client = createPublicClient({ chain: tiramisu, transport: http(RPC_URL, { timeout: 7_000 }) });
     const chainId = await client.getChainId(); if (chainId !== ARKIV_CHAIN_ID) throw new Error("Unexpected Arkiv network");
-    const select = { key: true, owner: true, creator: true, expiresAt: true, attributes: true, payload: true } as const;
+    const select = { key: true, owner: true, creator: true, expiresAt: true, creationFlags: true, attributes: true, payload: true } as const;
     const query = (type: (typeof ENTITY_TYPES)[number], block?: bigint) => { const builder = client.select(select).where(eq("entity_type", str(type))).limit(50); return (block === undefined ? builder : builder.atBlock(block)).fetch(); };
     const first = await query("issuer", requestedBlock ? BigInt(requestedBlock) : undefined); const block = first.blockNumber;
     const pages = await Promise.all(ENTITY_TYPES.slice(1).map((type) => query(type, block)));
@@ -37,6 +38,7 @@ export async function GET(request: Request) {
         const expected = type === "issuer" || type === "revocation_root" ? owners.issuer : type === "lender_policy" ? owners.lender : owners.governance;
         if (entity.owner.toLowerCase() !== expected) continue;
         try {
+          if (!matchesCreationPolicy(type, entity.creationFlags)) throw new Error("Creation flags do not match Nivra's immutable trust policy");
           const payload = parsePayload(entity);
           if (type === "issuer") {
             const key = payload.publicKey as { x?: unknown; y?: unknown };
@@ -59,6 +61,10 @@ export async function GET(request: Request) {
         } catch (error) { issues.push(`${type} ${entity.key}: ${error instanceof Error ? error.message : "invalid payload"}`); }
       }
     }
+    result.issuers.sort((a, b) => b.keyVersion - a.keyVersion);
+    result.policies.sort((a, b) => b.policyVersion - a.policyVersion);
+    result.revocationRoots.sort((a, b) => b.epoch - a.epoch);
+    result.circuitReleases.sort((a, b) => b.version - a.version);
     const issuer = result.issuers.find((value) => value.status === "active");
     const root = issuer && result.revocationRoots.filter((value) => value.issuerId === issuer.id).sort((a, b) => b.epoch - a.epoch)[0];
     const circuit = result.circuitReleases.find((value) => value.circuitId === CIRCUIT_ID && value.status === "approved");

@@ -9,6 +9,8 @@ import {
   EyeOff,
   FileLock2,
   LoaderCircle,
+  LockKeyhole,
+  RefreshCcw,
   Search,
   Server,
   ShieldCheck,
@@ -110,7 +112,7 @@ export function TrustExplorer() {
             {filtered.map((entity) => (
               <article key={entity.key} className="grid gap-5 p-5 md:grid-cols-[1.1fr_1fr_auto] md:items-start md:p-6">
                 <div>
-                  <div className="flex flex-wrap items-center gap-2"><span className="status status-neutral">{entity.type.replace("_", " ")}</span><span className="status status-success">Arkiv record</span></div>
+                  <div className="flex flex-wrap items-center gap-2"><span className="status status-neutral">{entity.type.replace("_", " ")}</span><span className="status status-success">Arkiv record</span><span className="status status-neutral"><LockKeyhole aria-hidden="true" size={13} /> Readonly</span>{entity.creationFlags.permissionlessExtension && <span className="status status-neutral"><RefreshCcw aria-hidden="true" size={13} /> Publicly renewable</span>}</div>
                   <h2 className="mt-3 font-bold">{entity.title}</h2>
                   <p className="mt-2 font-mono text-xs text-muted-foreground">{entity.key}</p>
                 </div>

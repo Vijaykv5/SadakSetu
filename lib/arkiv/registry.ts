@@ -98,7 +98,7 @@ export function numberAttr(attributes: Record<string, unknown> | undefined, name
 
 export function toTrustEntity(
   type: ArkivEntityType,
-  entity: { key: string; owner: string; creator: string; expiresAt: bigint; toJson: () => unknown },
+  entity: { key: string; owner: string; creator: string; expiresAt: bigint; creationFlags: { readonly: boolean; permissionlessExtension: boolean }; toJson: () => unknown },
   details: Record<string, string>,
   title: string,
   status: "active" | "approved" = "active",
@@ -111,6 +111,10 @@ export function toTrustEntity(
     owner: entity.owner,
     creator: entity.creator,
     expiresAt: entity.expiresAt.toString(),
+    creationFlags: {
+      readonly: entity.creationFlags.readonly,
+      permissionlessExtension: entity.creationFlags.permissionlessExtension,
+    },
     details,
     source: "arkiv",
   };

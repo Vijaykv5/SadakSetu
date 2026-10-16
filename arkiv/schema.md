@@ -127,7 +127,18 @@ One year from release, or earlier when a security issue requires deactivation. V
 
 ## Lifetime Extension
 
-Nivra does not use permissionless Lifetime Extension in the MVP. Institutions publish a reviewed successor entity instead, preserving explicit version history. If adopted later, the application will treat extension as setting a new expiry from the extension time—not adding duration to the old expiry—and will require the new expiry to move later.
+Every Nivra trust entity is created with `readonly: true`. Its attributes and payload are therefore an immutable snapshot; rotation, policy changes, and revocation updates publish a new version instead of mutating history.
+
+`revocation_root` and `circuit_release` additionally use `permissionlessExtension: true`. A lender, auditor, or archival service can keep these historical verification anchors available without gaining permission to alter their contents. `issuer` and `lender_policy` keep permissionless extension disabled because renewing those trust windows must remain an explicit institutional decision.
+
+| Entity | Expiration | `readonly` | `permissionlessExtension` |
+| --- | ---: | ---: | ---: |
+| `issuer` | 365 days | `true` | `false` |
+| `lender_policy` | 90 days | `true` | `false` |
+| `revocation_root` | 180 days | `true` | `true` |
+| `circuit_release` | 365 days | `true` | `true` |
+
+Creation flags are permanent. Verifiers reject records whose flags do not match this table. Extension sets a later expiry; it does not change the immutable payload or attributes.
 
 ## Read query
 
@@ -135,7 +146,7 @@ The implemented route uses the pinned SDK and performs a bounded query per entit
 
 ```ts
 const page = await client
-  .select({ key: true, owner: true, creator: true, expiresAt: true, attributes: true, payload: true })
+  .select({ key: true, owner: true, creator: true, expiresAt: true, creationFlags: true, attributes: true, payload: true })
   .where(eq("entity_type", str("lender_policy")))
   .atBlock(registryBlock)
   .limit(20)

@@ -4,12 +4,14 @@ import { createWalletClient, ExpirationTime, jsonToPayload } from "@arkiv-networ
 import { str, u64 } from "@arkiv-network/sdk/attr";
 import { tiramisu } from "@arkiv-network/sdk/chains";
 import { custom, getAddress, type Address, type EIP1193Provider } from "viem";
+import { creationPolicyFor } from "@/lib/arkiv/creation-policy";
+import type { ArkivEntityType } from "@/lib/arkiv/registry";
 
 type WalletProvider = EIP1193Provider & { isRabby?: boolean; providers?: WalletProvider[] };
 declare global { interface Window { ethereum?: WalletProvider } }
 
 export type WalletSession = { address: Address; chainId: number };
-export type PublishInput = { entityType: string; payload: Record<string, unknown>; attributes: { name: string; value: string | number; type: "str" | "u64" }[]; days?: number };
+export type PublishInput = { entityType: ArkivEntityType; payload: Record<string, unknown>; attributes: { name: string; value: string | number; type: "str" | "u64" }[] };
 
 async function provider(): Promise<WalletProvider> {
   if (typeof window === "undefined" || !window.ethereum) throw new Error("Install a wallet that supports Tiramisu.");
@@ -50,6 +52,7 @@ export async function publishArkivEntity(session: WalletSession, input: PublishI
   const ethereum = await provider();
   const client = createWalletClient({ chain: tiramisu, account: session.address, transport: custom(ethereum) });
   const attributes = Object.fromEntries(input.attributes.map((attribute) => [attribute.name, attribute.type === "u64" ? u64(attribute.value) : str(String(attribute.value))]));
-  return client.createEntity({ attributes: { entity_type: str(input.entityType), ...attributes }, payload: jsonToPayload(input.payload), contentType: "application/json", expires: ExpirationTime.fromDays(input.days ?? 365) });
+  const policy = creationPolicyFor(input.entityType);
+  return client.createEntity({ attributes: { entity_type: str(input.entityType), ...attributes }, payload: jsonToPayload(input.payload), contentType: "application/json", expires: ExpirationTime.fromDays(policy.days), flags: policy.flags });
 }
 

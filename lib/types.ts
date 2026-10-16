@@ -68,6 +68,10 @@ export type TrustEntity = {
   owner: string;
   creator: string;
   expiresAt: string;
+  creationFlags: {
+    readonly: boolean;
+    permissionlessExtension: boolean;
+  };
   details: Record<string, string>;
   source: "arkiv" | "demo-fixture";
 };

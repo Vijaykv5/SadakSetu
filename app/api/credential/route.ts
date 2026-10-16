@@ -6,6 +6,7 @@ import { eq } from "@arkiv-network/sdk/query";
 import { http } from "viem";
 import { buildEddsa, buildPoseidon } from "circomlibjs";
 import { REVOCATION_DEPTH } from "@/lib/zk";
+import { matchesCreationPolicy } from "@/lib/arkiv/creation-policy";
 import type { CredentialMetrics, SignedCredential } from "@/lib/types";
 
 const RPC_URL = "https://rpc.tiramisu.db-chain.testnet.arkiv.network";
@@ -24,13 +25,15 @@ export async function POST(request: Request) {
   if (!owner || !secret?.trim()) return Response.json({ error: "Set NIVRA_ISSUER_PRIVATE_KEY in .env.local, then restart the Next.js server." }, { status: 503 });
   try {
     const client = createPublicClient({ chain: tiramisu, transport: http(RPC_URL, { timeout: 7_000 }) });
-    const select = { key: true, owner: true, creator: true, attributes: true, payload: true, expiresAt: true } as const;
+    const select = { key: true, owner: true, creator: true, attributes: true, payload: true, expiresAt: true, creationFlags: true } as const;
     const issuerPage = await client.select(select).where(eq("entity_type", str("issuer"))).where(eq("status", str("active"))).ownedBy(owner as `0x${string}`).limit(10).fetch();
-    const issuerEntity = issuerPage.entities[0]; if (!issuerEntity) throw new Error("No active Arkiv issuer record");
-    const issuerPayload = issuerEntity.toJson() as Record<string, unknown>; const issuerKey = issuerPayload.publicKey as { x?: unknown; y?: unknown }; const issuerId = String(issuerPayload.issuerId); const keyVersion = Number(value(issuerEntity.attributes as unknown as Record<string, unknown>, "key_version") ?? issuerPayload.keyVersion);
+    const issuerCandidate = issuerPage.entities.filter((entity) => matchesCreationPolicy("issuer", entity.creationFlags)).map((entity) => ({ entity, payload: entity.toJson() as Record<string, unknown> })).sort((a, b) => Number(value(b.entity.attributes as unknown as Record<string, unknown>, "key_version") ?? b.payload.keyVersion) - Number(value(a.entity.attributes as unknown as Record<string, unknown>, "key_version") ?? a.payload.keyVersion))[0];
+    if (!issuerCandidate) throw new Error("No active immutable Arkiv issuer record");
+    const issuerEntity = issuerCandidate.entity; const issuerPayload = issuerCandidate.payload; const issuerKey = issuerPayload.publicKey as { x?: unknown; y?: unknown }; const issuerId = String(issuerPayload.issuerId); const keyVersion = Number(value(issuerEntity.attributes as unknown as Record<string, unknown>, "key_version") ?? issuerPayload.keyVersion);
     const rootPage = await client.select(select).where(eq("entity_type", str("revocation_root"))).where(eq("issuer_id", str(issuerId))).ownedBy(owner as `0x${string}`).atBlock(issuerPage.blockNumber).limit(10).fetch();
     const rootEntity = rootPage.entities.map((entity) => ({ entity, payload: entity.toJson() as Record<string, unknown> })).sort((a, b) => Number(b.payload.epoch) - Number(a.payload.epoch))[0];
     if (!rootEntity) throw new Error("No revocation root for the active issuer");
+    if (!matchesCreationPolicy("revocation_root", rootEntity.entity.creationFlags)) throw new Error("Revocation root does not allow immutable public preservation");
     const root = String(rootEntity.payload.root); const epoch = Number(rootEntity.payload.epoch); if (!/^\d+$/.test(root) || !Number.isSafeInteger(epoch)) throw new Error("Invalid revocation root");
     const eddsa = await buildEddsa(); const poseidon = await buildPoseidon(); const privateKey = createHash("sha256").update(secret).digest(); const publicKey = eddsa.prv2pub(privateKey);
     if (String(eddsa.F.toObject(publicKey[0])) !== String(issuerKey.x) || String(eddsa.F.toObject(publicKey[1])) !== String(issuerKey.y)) throw new Error("Issuer signing key does not match Arkiv issuer record");
