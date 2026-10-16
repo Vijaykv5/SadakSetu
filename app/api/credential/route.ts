@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   const body = (await request.json()) as { holderCommitment?: unknown; metrics?: unknown };
   if (typeof body.holderCommitment !== "string" || !/^\d{1,80}$/.test(body.holderCommitment) || !validMetrics(body.metrics)) return Response.json({ error: "Invalid credential request." }, { status: 400 });
   const owner = process.env.NIVRA_ISSUER_OWNER?.toLowerCase(); const secret = process.env.NIVRA_ISSUER_PRIVATE_KEY ?? process.env.NIVRA_DEMO_ISSUER_SECRET;
-  if (!owner || !secret) return Response.json({ error: "Issuer signing is not configured." }, { status: 503 });
+  if (!owner || !secret?.trim()) return Response.json({ error: "Set NIVRA_ISSUER_PRIVATE_KEY in .env.local, then restart the Next.js server." }, { status: 503 });
   try {
     const client = createPublicClient({ chain: tiramisu, transport: http(RPC_URL, { timeout: 7_000 }) });
     const select = { key: true, owner: true, creator: true, attributes: true, payload: true, expiresAt: true } as const;
