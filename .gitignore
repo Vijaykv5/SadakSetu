@@ -17,6 +17,12 @@
 /.next/
 /out/
 
+# Circom build outputs and trusted-setup material are reproducible locally and
+# are not required by the deployed browser prover. Keep only public/circuits.
+/.circuit-build/
+/.brand-preview/
+*.bak
+
 # production
 /build
 
