@@ -19,6 +19,11 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { DEMO_METRICS } from "@/lib/demo-data";
+import {
+  forgetEncryptedSessionKeys,
+  removeEncryptedSessionItem,
+  writeEncryptedSessionJson,
+} from "@/lib/encrypted-session";
 import type { ArkivRegistry } from "@/lib/arkiv/registry";
 import { formatInr, formatInrFromPaise, formatPercentFromBps, todayAsEpochDay } from "@/lib/format";
 import type { QualificationDecision, SignedCredential } from "@/lib/types";
@@ -48,6 +53,7 @@ export function BorrowerFlow() {
   const [selectedPolicyId, setSelectedPolicyId] = useState("");
   const [state, setState] = useState<ProofState>("idle");
   const [decision, setDecision] = useState<QualificationDecision | null>(null);
+  const [encryptedEnvelopeBytes, setEncryptedEnvelopeBytes] = useState<number | null>(null);
   const [error, setError] = useState("");
   const selectedPolicy = useMemo(
     () => registry?.policies.find((policy) => policy.id === selectedPolicyId) ?? registry?.policies[0],
@@ -71,9 +77,13 @@ export function BorrowerFlow() {
       if (!response.ok) throw new Error("The mock issuer could not create a credential.");
       const body = (await response.json()) as { credential?: SignedCredential; error?: string };
       if (!body.credential) throw new Error(body.error ?? "The Arkiv issuer could not create a credential.");
+      const envelopeBytes = await writeEncryptedSessionJson("nivra:credential", {
+        credential: body.credential,
+        holderSecret: secret,
+      });
       setCredential(body.credential);
       setHolderSecretValue(secret);
-      sessionStorage.setItem("nivra:credential", JSON.stringify({ credential: body.credential, holderSecret: secret }));
+      setEncryptedEnvelopeBytes(envelopeBytes);
       setState("ready");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Credential issuance failed.");
@@ -112,9 +122,14 @@ export function BorrowerFlow() {
         revocationRootEntityKey: credential.revocationRootEntityKey,
         verificationKeyHash: circuit.verificationKeyHash,
       };
-      setDecision(failedDecision);
-      sessionStorage.setItem("nivra:decision", JSON.stringify(failedDecision));
-      setState("done");
+      try {
+        await writeEncryptedSessionJson("nivra:decision", failedDecision);
+        setDecision(failedDecision);
+        setState("done");
+      } catch {
+        setError("The encrypted result could not be saved. Start over and try again.");
+        setState("error");
+      }
       return;
     }
 
@@ -155,8 +170,8 @@ export function BorrowerFlow() {
         revocationRootEntityKey: credential.revocationRootEntityKey,
         verificationKeyHash: circuit.verificationKeyHash,
       };
+      await writeEncryptedSessionJson("nivra:decision", nextDecision);
       setDecision(nextDecision);
-      sessionStorage.setItem("nivra:decision", JSON.stringify(nextDecision));
       setState("done");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Proof generation failed.");
@@ -165,12 +180,14 @@ export function BorrowerFlow() {
   }
 
   function resetDemo() {
-    sessionStorage.removeItem("nivra:credential");
-    sessionStorage.removeItem("nivra:decision");
+    removeEncryptedSessionItem("nivra:credential");
+    removeEncryptedSessionItem("nivra:decision");
+    forgetEncryptedSessionKeys();
     setConnected(false);
     setCredential(null);
     setHolderSecretValue("");
     setDecision(null);
+    setEncryptedEnvelopeBytes(null);
     setError("");
     setState("idle");
   }
@@ -217,7 +234,7 @@ export function BorrowerFlow() {
             <div className="flex items-center gap-2 font-bold text-foreground">
               <EyeOff aria-hidden="true" size={16} className="text-primary" /> This browser only
             </div>
-            <p className="mt-2">Your income proof stays in this tab and clears when the tab closes.</p>
+            <p className="mt-2">Your income proof is encrypted before it enters session storage. Its key stays only in page memory.</p>
           </div>
         </aside>
 
@@ -271,8 +288,8 @@ export function BorrowerFlow() {
                 ))}
               </div>
               <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="flex items-center gap-2 text-xs text-muted-foreground"><LockKeyhole aria-hidden="true" size={14} /> A private key is created in this browser.</p>
-                <button type="button" className="button-primary" onClick={issueCredential} disabled={state === "issuing" || registry?.status !== "connected"}>
+                <p className="flex items-center gap-2 text-xs text-muted-foreground"><LockKeyhole aria-hidden="true" size={14} /> A separate encryption key is created in page memory.</p>
+                <button type="button" className="button-primary" onClick={issueCredential} disabled={state === "issuing" || registry?.status !== "connected"} aria-busy={state === "issuing"}>
                   {state === "issuing" ? <LoaderCircle aria-hidden="true" className="animate-spin" size={16} /> : <FileKey2 aria-hidden="true" size={16} />}
                   {state === "issuing" ? "Creating income proof…" : registry?.status === "connected" ? "Create income proof" : "Waiting for Arkiv trust records"}
                 </button>
@@ -285,9 +302,15 @@ export function BorrowerFlow() {
               <section className="flex flex-col gap-4 rounded-xl border border-primary/35 bg-accent/35 p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
                   <BadgeCheck aria-hidden="true" className="mt-0.5 shrink-0 text-primary" size={21} />
-                  <div><p className="font-bold">Income proof ready</p><p className="mt-1 text-sm text-muted-foreground">Issued by Sahaj Bank. Stored in this browser.</p></div>
+                  <div>
+                    <p className="font-bold">Income proof ready</p>
+                    <p className="mt-1 text-sm text-muted-foreground">Issued by Sahaj Bank. AES-256-GCM encrypted in this browser{encryptedEnvelopeBytes ? ` · ${encryptedEnvelopeBytes.toLocaleString()}-byte envelope` : ""}.</p>
+                  </div>
                 </div>
-                <span className="status status-success">Issuer signature valid</span>
+                <div className="flex flex-wrap gap-2">
+                  <span className="status status-success">Issuer signature valid</span>
+                  <span className="status status-neutral"><LockKeyhole aria-hidden="true" size={13} /> Session encrypted</span>
+                </div>
               </section>
 
               <section>
@@ -328,7 +351,7 @@ export function BorrowerFlow() {
                     </ul>
                   </div>
                   <div className="border-t border-border p-6 lg:border-l lg:border-t-0 lg:p-8">
-                    <button type="button" className="button-primary w-full whitespace-nowrap lg:w-auto" onClick={checkPrivately} disabled={state === "proving" || !activePolicy || registry?.status !== "connected"}>
+                    <button type="button" className="button-primary w-full whitespace-nowrap lg:w-auto" onClick={checkPrivately} disabled={state === "proving" || !activePolicy || registry?.status !== "connected"} aria-busy={state === "proving"}>
                       {state === "proving" ? <LoaderCircle aria-hidden="true" className="animate-spin" size={17} /> : <Fingerprint aria-hidden="true" size={17} />}
                       {state === "proving" ? "Checking in this browser…" : "Check my fit"}
                     </button>
@@ -369,7 +392,7 @@ export function BorrowerFlow() {
           <section className="grid gap-4 sm:grid-cols-3">
             {[
               { icon: BanknoteArrowDown, title: "Income provider", copy: "Sees the records you approve and signs the summary." },
-              { icon: LockKeyhole, title: "Your browser", copy: "Keeps the income values and private credential data." },
+              { icon: LockKeyhole, title: "Your browser", copy: "Encrypts the credential before session storage. Reloading discards the in-memory key." },
               { icon: Clock3, title: "Lender", copy: "Receives a short-lived result tied to one loan rule." },
             ].map(({ icon: Icon, title, copy }) => (
               <div key={title} className="rounded-xl border border-border p-5"><Icon aria-hidden="true" className="text-primary" size={19} /><h3 className="mt-4 text-sm font-bold">{title}</h3><p className="mt-2 text-xs leading-5 text-muted-foreground">{copy}</p></div>

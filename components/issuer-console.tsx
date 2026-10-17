@@ -9,18 +9,19 @@ import {
   Check,
   FileKey2,
   KeyRound,
+  LockKeyhole,
   RefreshCw,
   ShieldX,
 } from "lucide-react";
 import { DEMO_ISSUER } from "@/lib/demo-data";
 import { formatInrFromPaise, shortenHex } from "@/lib/format";
 import type { SignedCredential } from "@/lib/types";
-import { useSessionJson } from "@/lib/use-session-json";
+import { useEncryptedSessionJson } from "@/lib/use-encrypted-session-json";
 import { IssuerArkivPublisher } from "@/components/arkiv-publisher";
 
 export function IssuerConsole() {
-  const storedCredential = useSessionJson<{ credential: SignedCredential }>("nivra:credential");
-  const credential = storedCredential?.credential ?? null;
+  const credentialSession = useEncryptedSessionJson<{ credential: SignedCredential }>("nivra:credential");
+  const credential = credentialSession.value?.credential ?? null;
   const [keyVersion, setKeyVersion] = useState(DEMO_ISSUER.keyVersion);
   const [revocationEpoch, setRevocationEpoch] = useState(12);
   const [revoked, setRevoked] = useState(false);
@@ -61,7 +62,17 @@ export function IssuerConsole() {
 
           <section className="panel overflow-hidden">
             <div className="border-b border-border px-5 py-4 md:px-6"><p className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">Latest issuance</p><h2 className="mt-1 text-lg font-bold">Income proof in this session</h2></div>
-            {!credential ? (
+            {credentialSession.status === "loading" ? (
+              <div className="grid min-h-72 gap-3 p-8" aria-label="Opening encrypted income proof" aria-busy="true">
+                <div className="h-7 w-36 animate-pulse rounded-lg bg-muted" />
+                <div className="h-20 animate-pulse rounded-xl bg-muted" />
+                <div className="h-20 animate-pulse rounded-xl bg-muted" />
+              </div>
+            ) : credentialSession.status === "locked" || credentialSession.status === "error" ? (
+              <div className="grid min-h-72 place-items-center p-8 text-center">
+                <div className="max-w-sm"><LockKeyhole aria-hidden="true" className="mx-auto text-muted-foreground" size={30} /><h3 className="mt-4 font-bold">Encrypted proof is locked</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{credentialSession.status === "locked" ? "The page-memory key was discarded after a reload." : "The encrypted session data could not be authenticated."} Start a new borrower check to create a fresh session.</p><Link href="/borrower" className="button-primary mt-5">Start a new check <ArrowRight aria-hidden="true" size={16} /></Link></div>
+              </div>
+            ) : !credential ? (
               <div className="grid min-h-72 place-items-center p-8 text-center">
                 <div className="max-w-sm"><FileKey2 aria-hidden="true" className="mx-auto text-muted-foreground" size={30} /><h3 className="mt-4 font-bold">No income proof issued yet</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">Run the eligibility check with sample data to create one.</p><Link href="/borrower" className="button-primary mt-5">Open eligibility check <ArrowRight aria-hidden="true" size={16} /></Link></div>
               </div>
@@ -81,7 +92,7 @@ export function IssuerConsole() {
                     <div><dt className="text-xs text-muted-foreground">Credential reference</dt><dd className="mt-1 font-mono">{shortenHex(credential.credentialId, 8, 6)}</dd></div>
                     <div><dt className="text-xs text-muted-foreground">Signature scheme</dt><dd className="mt-1 font-medium">{credential.scheme}</dd></div>
                     <div><dt className="text-xs text-muted-foreground">Holder binding</dt><dd className="mt-1 font-mono">Poseidon commitment</dd></div>
-                    <div><dt className="text-xs text-muted-foreground">Storage</dt><dd className="mt-1 font-medium">Borrower session only</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">Storage</dt><dd className="mt-1 font-medium">AES-256-GCM session envelope</dd></div>
                   </dl>
                 </div>
                 <div className="flex flex-col gap-3 border-t border-border bg-muted px-5 py-4 sm:flex-row md:px-6">

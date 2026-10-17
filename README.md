@@ -6,7 +6,7 @@ This is not anonymous lending and it does not approve or disburse loans. An elig
 
 ## Product sandbox
 
-- `/borrower` fetches the verified Arkiv registry, creates an issuer-signed income credential, and checks a loan rule in the browser.
+- `/borrower` fetches the verified Arkiv registry, creates an issuer-signed income credential, encrypts it locally, and checks a loan rule in the browser.
 - `/lender` verifies the result without receiving the borrower's income values.
 - `/issuer` shows income proof issuance plus key rotation and revocation.
 - `/trust` queries Arkiv Tiramisu and shows which registry records are public.
@@ -58,6 +58,8 @@ Stored only in the borrower's browser session:
 - issuer signature and complete credential;
 - proof witness and generated proof.
 
+Nivra uses the exact `arkiv-encryption@0.1.0` package to protect the credential and decision as authenticated AES-256-GCM envelopes before they enter `sessionStorage`. Each envelope gets an independent encryption key that stays in page memory and is never written to storage, logged, sent to Arkiv, or derived from a wallet. A full reload discards the keys, so any remaining envelopes become unreadable and the borrower must start a new check.
+
 Sent to the lender during a sandbox check:
 
 - Groth16 proof and public signals;
@@ -71,7 +73,9 @@ Written to Arkiv by this application: only issuer, lender policy, revocation roo
 
 - The proving setup uses a single contributor and is not production safe.
 - The circuit and dependencies are unaudited.
-- Session storage protects against routine persistence, not XSS or a compromised device.
+- Browser encryption protects session data at rest, but not an unlocked page, XSS, malicious extensions, or a compromised device.
+- The page-memory encryption key has no escrow or recovery path. Reloading the app intentionally makes the current session envelope unreadable.
+- `arkiv-encryption@0.1.0` is intended for testnet use and has not been independently audited as a privacy system.
 - An issuer may correlate credential issuance timing with later activity outside the protocol.
 - ZK hides witness values, not IP addresses, device fingerprints, request timing, or identity disclosed during later KYC.
 - The deterministic fallback issuer secret is for a clearly labeled local mock only. Production must use managed signing infrastructure and explicit key rotation.

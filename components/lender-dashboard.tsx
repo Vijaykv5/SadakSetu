@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
+  ArrowRight,
   BadgeCheck,
   Check,
   CircleAlert,
@@ -15,14 +17,15 @@ import {
 import type { ArkivRegistry } from "@/lib/arkiv/registry";
 import { formatInrFromPaise, formatPercentFromBps } from "@/lib/format";
 import type { QualificationDecision } from "@/lib/types";
-import { useSessionJson } from "@/lib/use-session-json";
+import { useEncryptedSessionJson } from "@/lib/use-encrypted-session-json";
 import { challengeBlock } from "@/lib/zk";
 import { LenderArkivPublisher } from "@/components/arkiv-publisher";
 
 type VerificationState = "idle" | "verifying" | "valid" | "invalid";
 
 export function LenderDashboard() {
-  const decision = useSessionJson<QualificationDecision>("nivra:decision");
+  const decisionSession = useEncryptedSessionJson<QualificationDecision>("nivra:decision");
+  const decision = decisionSession.value;
   const [verification, setVerification] = useState<VerificationState>("idle");
   const [draftSaved, setDraftSaved] = useState(false);
   const [registry, setRegistry] = useState<ArkivRegistry | null>(null);
@@ -67,7 +70,22 @@ export function LenderDashboard() {
               {decision?.qualified && <span className="status status-success">Starting rules met</span>}
             </div>
 
-            {!decision ? (
+            {decisionSession.status === "loading" ? (
+              <div className="grid min-h-72 gap-3 p-8" aria-label="Opening encrypted eligibility check" aria-busy="true">
+                <div className="h-7 w-40 animate-pulse rounded-lg bg-muted" />
+                <div className="h-20 animate-pulse rounded-xl bg-muted" />
+                <div className="h-20 animate-pulse rounded-xl bg-muted" />
+              </div>
+            ) : decisionSession.status === "locked" || decisionSession.status === "error" ? (
+              <div className="grid min-h-72 place-items-center p-8 text-center">
+                <div className="max-w-sm">
+                  <CircleAlert aria-hidden="true" className="mx-auto text-muted-foreground" size={30} />
+                  <h3 className="mt-4 font-bold">Encrypted result is locked</h3>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{decisionSession.status === "locked" ? "The page-memory key is no longer available." : "The encrypted result could not be authenticated."} Run a new borrower check before opening this workspace.</p>
+                  <Link href="/borrower" className="button-primary mt-5">Start a new check <ArrowRight aria-hidden="true" size={16} /></Link>
+                </div>
+              </div>
+            ) : !decision ? (
               <div className="grid min-h-72 place-items-center p-8 text-center">
                 <div className="max-w-sm">
                   <FileLock2 aria-hidden="true" className="mx-auto text-muted-foreground" size={30} />
