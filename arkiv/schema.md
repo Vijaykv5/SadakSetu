@@ -1,161 +1,110 @@
-# Nivra Arkiv entity model
+# SadakSetu Arkiv entity model
 
 Network: Tiramisu (`7738577`)  
 SDK: `@arkiv-network/sdk@0.8.1`  
-Integration status: live, wallet-approved publishing plus block-pinned reads.
+Implementation status: implemented by the wallet-backed citizen form on `/report`, the wallet-backed authority console on `/operations`, and the block-scoped `/api/arkiv/roads` read route.
 
-Nivra stores public coordination and trust data on Arkiv. It never stores a borrower, credential, proof, nullifier, decision, bank transaction, or application record.
+SadakSetu uses Arkiv for public civic coordination and accountability. Arkiv must never contain a reporter's real-world identity, exact private coordinates, original media, IP address, device fingerprint, contact detail, or private verifier note. The wallet that signs a report is necessarily public as Arkiv's `$creator`, so the interface discloses that before signing. Entity Expiration is lifecycle management, not deletion or a privacy control.
 
-Every consuming read must compare `$owner` or `$creator` with a locally configured expected institutional address. A matching entity type or payload is not sufficient authorization. Related entities should be read at one query-page block where the SDK response supports it.
+## Entity types
 
-## Why Arkiv
+### `civic_authority`
 
-The user-visible benefit is an independently queryable answer to: which issuers may sign, which lender policy was proved, which revocation root is current, and which circuit release a verifier accepts? A Web2 alternative would put those Arkiv entities behind one Nivra API, making Nivra the sole trust and availability boundary. Arkiv adds public ownership, versioning, expiry, and queryability, at the cost of public institutional metadata and on-chain lifecycle management.
+Identifies an institution permitted to verify incidents or publish road actions.
 
-## Deliberately off Arkiv
+Queryable attributes: `entity_type`, `authority_id`, `role`, `jurisdiction`, `status`, `key_version`.
 
-Secrets and personal data stay off Arkiv: borrower identity, bank and UPI histories, income metrics, obligations, holder secret, holder commitment, credential ID, issuer signature, credential, proof, public proof inputs tied to a request, nullifier, decision, application, IP metadata, and KYC data. Entity Expiration is not erasure and is never used as a privacy control.
+Payload: display name, signing address, ECDH P-256 encryption public key, allowed action types, and policy version. The matching non-exportable private key stays in the authority browser's IndexedDB. Owner must match a locally configured institutional address.
 
-## `issuer`
+Expiration: 365 nominal days. Creation flags: `readonly: true`, `permissionlessExtension: false`. The authority owner controls renewal.
 
-Queryable attributes:
+### `road_incident`
 
-- `entity_type = "issuer"`
-- `issuer_id: string`
-- `status: string`
-- `key_version: u64`
+Creates the public, privacy-safe incident record.
 
-Payload:
+Queryable attributes: `entity_type`, `incident_id`, `city_code`, `zone_code`, `incident_type`, `severity`, `status`, `reported_day`.
 
-```json
-{
-  "displayName": "Sahaj Bank",
-  "scheme": "BabyJubJub-EdDSA-Poseidon",
-  "publicKey": { "x": "field element", "y": "field element" },
-  "supportedCircuitIds": ["nivra-prequal"]
-}
-```
+Payload: coarse location cell or public junction, human-safe description, corroboration count, encrypted-evidence digest, opaque capsule ID, capsule expiry, privacy-policy version, and creation timestamp. Exact coordinates, private notes, and original evidence stay encrypted off Arkiv.
 
-Owner policy: must equal the registered issuer writer.
+Expiration: 30 nominal days. Creation flags: `readonly: true`, `permissionlessExtension: true`. Anyone may preserve a still-relevant public report without gaining permission to alter it.
 
-### Entity Expiration
+Creator: the citizen-selected EVM wallet signs the creation transaction and becomes the public Arkiv `$creator`. SadakSetu does not claim that the wallet is anonymous; users should not use an address whose public linkage they do not accept.
 
-One year from publication. A replacement entity is published before expiry when rotating keys; an expired issuer entity is never accepted for a new proof.
+### `incident_verification`
 
-## `lender_policy`
+Records a signed institutional decision about an incident.
 
-Queryable attributes:
+Queryable attributes: `entity_type`, `incident_id`, `authority_id`, `decision`, `severity`, `verified_day`.
 
-- `entity_type = "lender_policy"`
-- `lender_id: string`
-- `product_type: string`
-- `status: string`
-- `policy_version: u64`
+Payload: referenced incident key, verifier role, decision reason code, restricted-evidence digest, signature, and verification timestamp. The verifier institution is public; the citizen is not.
 
-Payload:
+Expiration: 180 nominal days. Creation flags: `readonly: true`, `permissionlessExtension: true`. Auditors may preserve the verification record.
 
-```json
-{
-  "productName": "Gig Worker Flex Loan",
-  "loanBandPaise": [7500000, 15000000],
-  "minAverageMonthlyInflowPaise": 4500000,
-  "minActiveIncomeMonths": 4,
-  "maxFoirBps": 5000,
-  "proposedEmiPaise": 850000,
-  "maxCredentialAgeDays": 45,
-  "acceptedIssuerIds": ["nivra-demo-bank-v1"],
-  "canonicalPolicyHash": "Poseidon field element"
-}
-```
+### `road_work_order`
 
-Owner policy: must equal the lender's configured writer.
+Records responsibility for a verified problem.
 
-### Entity Expiration
+Queryable attributes: `entity_type`, `incident_id`, `authority_id`, `zone_code`, `work_status`, `target_day`.
 
-Entity Expiration: 90 days from publication, and never later than the policy validity end. Old versions may remain historical but must not be treated as active after Entity Expiration.
+Payload: referenced verification key, assigned road cell, work category, service-level target, contractor identifier when public, and status timestamp.
 
-## `revocation_root`
+Expiration: 90 nominal days. Creation flags: `readonly: true`, `permissionlessExtension: false`. Operational renewal stays with the authority owner.
 
-Queryable attributes:
+### `road_resolution`
 
-- `entity_type = "revocation_root"`
-- `issuer_id: string`
-- `epoch: u64`
+Records completion or closure without rewriting earlier history.
 
-Payload:
+Queryable attributes: `entity_type`, `incident_id`, `authority_id`, `resolution_code`, `completed_day`.
 
-```json
-{
-  "root": "Poseidon field element",
-  "treeDepth": 8,
-  "issuerSignature": "signature over issuer_id, epoch, and root"
-}
-```
+Payload: referenced work-order key, before-and-after evidence digests, public completion note, signing key version, and completion timestamp.
 
-Owner policy: must match the referenced issuer entity owner.
+Expiration: 365 nominal days. Creation flags: `readonly: true`, `permissionlessExtension: true`. Auditors may preserve resolution evidence.
 
-### Entity Expiration
+## Immutability and lifecycle
 
-Entity Expiration: 180 days from publication. The issuer must choose a later concrete expiry when necessary to verify every unexpired credential issued under the epoch; a root must not expire while a referencing credential can remain valid.
+Every entity is a read-only snapshot. Status changes publish a new linked entity instead of mutating the earlier record. Creation flags are permanent. `readonly` prevents payload and attribute patches but still permits expiry extension, ownership transfer, and owner deletion. `permissionlessExtension` permits any account to extend expiry without changing the record. It therefore provides community preservation, not a guaranteed deletion deadline.
 
-## `circuit_release`
+SDK duration helpers convert nominal time to block lifetimes. The application must display the resulting expiry block and must not promise an exact wall-clock expiry.
 
-Queryable attributes:
+## Privacy boundary
 
-- `entity_type = "circuit_release"`
-- `circuit_id: string`
-- `version: u64`
-- `status: string`
+Stored only in encrypted, access-controlled evidence storage:
 
-Payload:
+- precise latitude and longitude;
+- original photo or video;
+- EXIF and upload metadata;
+- optional reporter reply channel;
+- restricted verifier notes;
+- emergency or medical details.
 
-```json
-{
-  "provingSystem": "Groth16",
-  "curve": "BN254",
-  "verificationKeyHash": "sha256 digest",
-  "circuitSourceCommit": "git commit",
-  "setupTranscript": "artifact reference"
-}
-```
+## Private evidence capsule
 
-Owner policy: must match the project's configured circuit-governance address.
+The implemented prototype generates an ECDH P-256 authority key pair in the browser. Only its public JWK is published in the `civic_authority` entity. When a citizen includes restricted evidence, the browser creates an ephemeral ECDH key, derives an AES-256-GCM key, and encrypts exact location, private notes, and optional media before upload.
 
-### Entity Expiration
+The `/api/evidence` prototype vault receives ciphertext only, limits the encrypted request size, disables caching, and automatically expires capsules after at most 24 hours. It is intentionally transient in-memory storage for the public demo, not a production evidence service. Arkiv receives an opaque capsule ID and SHA-256 commitment to the ciphertext, never the plaintext or the decryption key.
 
-One year from release, or earlier when a security issue requires deactivation. Verifiers reject an expired circuit release even if its verification key still validates mathematically.
+The verifier must connect the authority wallet in the same browser that created the authority key. Decryption happens locally. A successful review creates a separate signed `incident_verification` entity; decrypted evidence is not copied into it.
 
-## Lifetime Extension
+Written to Arkiv:
 
-Every Nivra trust entity is created with `readonly: true`. Its attributes and payload are therefore an immutable snapshot; rotation, policy changes, and revocation updates publish a new version instead of mutating history.
+- the signing wallet as Arkiv's `$creator`;
+- coarse location or public junction;
+- category, severity, and public status;
+- content digests and linked record keys;
+- institutional owners, signatures, versions, and timestamps;
+- public assignment and resolution history.
 
-`revocation_root` and `circuit_release` additionally use `permissionlessExtension: true`. A lender, auditor, or archival service can keep these historical verification anchors available without gaining permission to alter their contents. `issuer` and `lender_policy` keep permissionless extension disabled because renewing those trust windows must remain an explicit institutional decision.
+The public explorer must derive its state from the ordered incident → verification → work order → resolution chain. No single application database should be the sole source of authority history.
 
-| Entity | Expiration | `readonly` | `permissionlessExtension` |
-| --- | ---: | ---: | ---: |
-| `issuer` | 365 days | `true` | `false` |
-| `lender_policy` | 90 days | `true` | `false` |
-| `revocation_root` | 180 days | `true` | `true` |
-| `circuit_release` | 365 days | `true` | `true` |
+## Application queries
 
-Creation flags are permanent. Verifiers reject records whose flags do not match this table. Extension sets a later expiry; it does not change the immutable payload or attributes.
-
-## Read query
-
-The implemented route uses the pinned SDK and performs a bounded query per entity type:
+The road registry uses the same typed discriminator written at creation:
 
 ```ts
-const page = await client
-  .select({ key: true, owner: true, creator: true, expiresAt: true, creationFlags: true, attributes: true, payload: true })
-  .where(eq("entity_type", str("lender_policy")))
-  .atBlock(registryBlock)
-  .limit(20)
+client.select(selection)
+  .where(eq("entity_type", str("road_incident")))
+  .limit(50)
   .fetch();
 ```
 
-Consumers must validate the entity owner, status, version, expiry, canonical policy hash, accepted issuer, and circuit release before accepting a proof. Nivra queries all four types at one block and places that block plus the entity keys in the browser decision. The lender re-reads the same block before accepting a proof.
-
-## Wallet publishing
-
-The issuer screen publishes `issuer`, `revocation_root`, and `circuit_release`. The lender screen publishes `lender_policy`. Each action uses the connected EIP-1193 wallet on Tiramisu, shows the exact entity payload in the UI, and waits for one explicit wallet approval. Nivra never receives a private key and never retries a rejected transaction.
-
+The API queries all five entity types at one Arkiv block so the returned registry is internally block-scoped. Product views can additionally apply typed filters for `city_code`, `status`, `incident_type`, `incident_id`, and `$creator`. Payload fields are not queryable.

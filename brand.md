@@ -1,29 +1,31 @@
-# Nivra Brand System
+# SadakSetu Brand System
 
 ## Direction
 
-Nivra is a calm, evidence-first financial utility. It should feel humane enough for a first-time borrower and rigorous enough for a lender risk team. The visual direction is warm utilitarian: paper-toned surfaces, one neem-green accent, clear containment, and restrained motion.
+SadakSetu is a calm, evidence-first civic utility. It should feel safe enough for an anonymous citizen report and rigorous enough for a municipal operations team. The visual direction is Indian civic night-board modernism: a flat near-black oxblood field, exact warm yellow, exact white, crisp bordered surfaces, road-marking geometry, stamped verification marks, clear containment, and restrained motion. Indian character comes from material, geometry, rhythm, and language—not stock imagery, monuments, flags, festival decoration, or sepia nostalgia.
 
 ## Colors
 
-| Role | Light | Dark | Use |
-| --- | --- | --- | --- |
-| Background | `oklch(0.97 0.015 95)` | `oklch(0.15 0.018 145)` | Page canvas |
-| Foreground | `oklch(0.22 0.02 125)` | `oklch(0.94 0.012 110)` | Primary text |
-| Card | `oklch(0.995 0.005 95)` | `oklch(0.19 0.022 145)` | Elevated surfaces |
-| Primary | `oklch(0.44 0.075 145)` | `oklch(0.72 0.11 145)` | Primary actions, trusted state |
-| Muted | `oklch(0.925 0.014 95)` | `oklch(0.24 0.02 145)` | Quiet fills |
-| Border | `oklch(0.84 0.018 100)` | `oklch(0.31 0.025 145)` | Structural divisions |
-| Success | `oklch(0.52 0.11 145)` | `oklch(0.72 0.11 145)` | Verified state only |
-| Warning | `oklch(0.67 0.12 78)` | `oklch(0.77 0.12 78)` | Demo / caution state |
-| Destructive | `oklch(0.55 0.18 28)` | `oklch(0.68 0.18 28)` | Revocation and errors |
+| Role | Color | Use |
+| --- | --- | --- |
+| Background | `#160F10` | Solid near-black oxblood site canvas |
+| Foreground | `#FFFFFF` | Exact white primary text |
+| Card | `#211718` | Deep oxblood fieldboard surfaces |
+| Primary | `#FFD28E` | Exact warm-yellow actions and highlighted words |
+| Secondary | `#2A1D1F` | Supporting surfaces |
+| Muted | `#2B2021` | Quiet sections |
+| Border | `#4C3638` | Structural divisions |
+| Success | `#8BD6AE` | Verified and resolved states |
+| Warning | `#FFD28E` | Attention and pending states |
+| Destructive | `#EF6B6B` | Revocation and errors |
+| Editorial | `#FFD28E` | Eyebrows, print rules, and narrative labels |
 
-Use the primary green sparingly. No decorative gradients. Semantic colors only communicate state.
+Use the oxblood-black canvas as the dominant atmosphere. Narrative text is either exact `#FFFFFF` or exact `#FFD28E`; dark text is reserved for yellow controls and banners where contrast requires it. Neem green remains semantic success. Do not use gradients—the platform gets depth from solid fields, borders, scale, and spacing.
 
 ## Typography
 
 - Product text: DM Sans, variable weight 400–700.
-- Proof data and monetary values: DM Mono, weight 400–500.
+- Record identifiers, counts, and timestamps: DM Mono, weight 400–500.
 - Maximum three weights per screen: 400, 500/600, 700.
 - Display copy is tightly tracked; uppercase eyebrow labels are widely tracked.
 
@@ -33,14 +35,17 @@ Use the primary green sparingly. No decorative gradients. Semantic colors only c
 - Buttons are 44px or taller, with a smaller radius than cards.
 - Cards use 16–20px radii; status chips use pill radii.
 - Focus rings are visible and use the primary token.
-- Data tables left-align labels and right-align numeric values.
+- Operations tables left-align labels and right-align numeric values.
+- Shared shell dividers may use a quiet block-print rule; avoid decorative motifs inside forms and data tables.
+- Narrative panels may use double fieldbook borders and stamped verification marks.
+- Do not depend on Indian people, monuments, flags, or festival imagery to communicate the identity—the interface itself must carry it.
 
 ## Voice
 
 - Specific, plain, and non-promotional.
-- Say “conditional pre-qualification,” never “loan approval.”
 - State what stays private and what becomes public.
-- Label simulations, mock integrations, and unaudited cryptography directly.
+- Put emergency action before product interaction for accidents.
+- Label simulations, mock authority integrations, and unaudited cryptography directly.
 
 ## Motion
 

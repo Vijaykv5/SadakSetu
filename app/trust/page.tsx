@@ -1,9 +1,6 @@
-import type { Metadata } from "next";
-import { TrustExplorer } from "@/components/trust-explorer";
-
-export const metadata: Metadata = { title: "Public registry" };
+import { redirect } from "next/navigation";
 
 export default function TrustPage() {
-  return <TrustExplorer />;
+  redirect("/roads");
 }
 

@@ -4,29 +4,30 @@
 @source "../components";
 
 :root {
-  --background: oklch(0.97 0.015 95);
-  --foreground: oklch(0.22 0.02 125);
-  --card: oklch(0.995 0.005 95);
-  --card-foreground: oklch(0.22 0.02 125);
-  --popover: oklch(0.995 0.005 95);
-  --popover-foreground: oklch(0.22 0.02 125);
-  --primary: oklch(0.44 0.075 145);
-  --primary-foreground: oklch(0.985 0.005 110);
-  --secondary: oklch(0.92 0.028 115);
-  --secondary-foreground: oklch(0.28 0.035 135);
-  --muted: oklch(0.93 0.015 95);
-  --muted-foreground: oklch(0.43 0.018 120);
-  --accent: oklch(0.88 0.05 140);
-  --accent-foreground: oklch(0.25 0.04 140);
-  --destructive: oklch(0.57 0.19 27);
-  --destructive-foreground: oklch(0.985 0.005 95);
-  --border: oklch(0.86 0.018 105);
-  --input: oklch(0.86 0.018 105);
-  --ring: oklch(0.44 0.075 145);
-  --success: oklch(0.52 0.11 150);
-  --success-foreground: oklch(0.985 0.005 110);
-  --warning: oklch(0.68 0.13 70);
-  --warning-foreground: oklch(0.22 0.03 70);
+  --background: #160f10;
+  --foreground: #ffffff;
+  --card: #211718;
+  --card-foreground: #ffffff;
+  --popover: #211718;
+  --popover-foreground: #ffffff;
+  --primary: #ffd28e;
+  --primary-foreground: #160f10;
+  --secondary: #2a1d1f;
+  --secondary-foreground: #ffd28e;
+  --muted: #2b2021;
+  --muted-foreground: #ffffff;
+  --accent: #ffd28e;
+  --accent-foreground: #160f10;
+  --destructive: #ef6b6b;
+  --destructive-foreground: #160f10;
+  --border: #4c3638;
+  --input: #5b4143;
+  --ring: #ffd28e;
+  --success: #8bd6ae;
+  --success-foreground: #160f10;
+  --warning: #ffd28e;
+  --warning-foreground: #160f10;
+  --editorial: #ffd28e;
   --radius: 0.75rem;
 }
 
@@ -54,40 +55,13 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-editorial: var(--editorial);
   --font-sans: var(--font-dm-sans);
   --font-mono: var(--font-dm-mono);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.15 0.018 145);
-    --foreground: oklch(0.94 0.012 110);
-    --card: oklch(0.19 0.022 145);
-    --card-foreground: oklch(0.94 0.012 110);
-    --popover: oklch(0.19 0.022 145);
-    --popover-foreground: oklch(0.94 0.012 110);
-    --primary: oklch(0.72 0.11 145);
-    --primary-foreground: oklch(0.17 0.025 145);
-    --secondary: oklch(0.25 0.03 140);
-    --secondary-foreground: oklch(0.92 0.015 110);
-    --muted: oklch(0.24 0.02 140);
-    --muted-foreground: oklch(0.72 0.02 115);
-    --accent: oklch(0.31 0.055 145);
-    --accent-foreground: oklch(0.94 0.012 110);
-    --destructive: oklch(0.68 0.17 27);
-    --destructive-foreground: oklch(0.16 0.02 27);
-    --border: oklch(0.3 0.025 140);
-    --input: oklch(0.3 0.025 140);
-    --ring: oklch(0.72 0.11 145);
-    --success: oklch(0.7 0.12 150);
-    --success-foreground: oklch(0.15 0.02 145);
-    --warning: oklch(0.78 0.12 75);
-    --warning-foreground: oklch(0.2 0.03 70);
-  }
 }
 
 * {
@@ -104,6 +78,7 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
@@ -115,7 +90,8 @@ body {
 button,
 a,
 input,
-select {
+select,
+textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -128,7 +104,8 @@ button:not(:disabled),
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+textarea:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 3px;
 }
@@ -142,11 +119,90 @@ select:focus-visible {
 }
 
 .eyebrow {
-  color: var(--primary);
+  color: var(--editorial);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.text-editorial {
+  color: var(--editorial);
+}
+
+.border-editorial {
+  border-color: var(--editorial);
+}
+
+.heritage-panel {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--card);
+  isolation: isolate;
+}
+
+.heritage-panel::before {
+  position: absolute;
+  z-index: 0;
+  inset: 4px;
+  border: 1px solid color-mix(in oklch, var(--editorial) 28%, transparent);
+  border-radius: 0.5rem;
+  content: "";
+  pointer-events: none;
+}
+
+.stamp-mark {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border: 1px solid color-mix(in oklch, var(--editorial) 55%, var(--border));
+  border-radius: 999px;
+  color: var(--editorial);
+  outline: 1px dotted color-mix(in oklch, var(--editorial) 45%, transparent);
+  outline-offset: -4px;
+}
+
+.india-rule {
+  height: 5px;
+  width: 100%;
+  background: var(--editorial);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 48 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 0c1.2 3.2 2.8 4.8 6 6-3.2 1.2-4.8 2.8-6 6-1.2-3.2-2.8-4.8-6-6 3.2-1.2 4.8-2.8 6-6Zm12 2 4 4-4 4-4-4 4-4Zm12-2c1.2 3.2 2.8 4.8 6 6-3.2 1.2-4.8 2.8-6 6-1.2-3.2-2.8-4.8-6-6 3.2-1.2 4.8-2.8 6-6Zm12 2 4 4-4 4-4-4 4-4Z' fill='black'/%3E%3C/svg%3E");
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: repeat-x;
+  -webkit-mask-size: 48px 12px;
+  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 48 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 0c1.2 3.2 2.8 4.8 6 6-3.2 1.2-4.8 2.8-6 6-1.2-3.2-2.8-4.8-6-6 3.2-1.2 4.8-2.8 6-6Zm12 2 4 4-4 4-4-4 4-4Zm12-2c1.2 3.2 2.8 4.8 6 6-3.2 1.2-4.8 2.8-6 6-1.2-3.2-2.8-4.8-6-6 3.2-1.2 4.8-2.8 6-6Zm12 2 4 4-4 4-4-4 4-4Z' fill='black'/%3E%3C/svg%3E");
+  mask-position: center;
+  mask-repeat: repeat-x;
+  mask-size: 48px 12px;
+  opacity: 0.72;
+}
+
+.road-grid {
+  background: var(--muted);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .recent-report-enter {
+    animation: recent-report-enter 300ms cubic-bezier(0.23, 1, 0.32, 1) both;
+    animation-delay: var(--recent-delay, 0ms);
+  }
+}
+
+@keyframes recent-report-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero-stage {
+  background: var(--background);
 }
 
 .panel {
@@ -253,6 +309,10 @@ select:focus-visible {
 
 .field:focus {
   border-color: var(--ring);
+}
+
+textarea.field {
+  display: block;
 }
 
 .page-enter {

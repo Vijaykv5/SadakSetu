@@ -2,7 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: process.cwd(),
-  /* config options here */
+  async redirects() {
+    return [{ source: "/india/status", destination: "/roads", permanent: true }];
+  },
   experimental: {
     agentFeedback: true,
   },

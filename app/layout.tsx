@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { DM_Mono, DM_Sans } from "next/font/google";
 import { AppShell } from "@/components/app-shell";
+import { AuthorityWalletProvider } from "@/components/authority-wallet-provider";
+import { LanguageProvider } from "@/components/language-provider";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -18,15 +20,19 @@ const dmMono = DM_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Nivra — Check loan fit before sharing bank statements", template: "%s — Nivra" },
-  description: "Check whether verified income meets a lender's starting rules before sharing full financial records.",
+  title: { default: "SadakSetu — Anonymous road reports, accountable action", template: "%s — SadakSetu" },
+  description: "Report road hazards privately and follow a public, verifiable response trail.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${dmSans.variable} ${dmMono.variable}`}>
       <body>
-        <AppShell>{children}</AppShell>
+        <LanguageProvider>
+          <AuthorityWalletProvider>
+            <AppShell>{children}</AppShell>
+          </AuthorityWalletProvider>
+        </LanguageProvider>
       </body>
     </html>
   );
