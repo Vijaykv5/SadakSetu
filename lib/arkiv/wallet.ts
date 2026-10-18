@@ -8,7 +8,6 @@ import { roadCreationPolicyFor } from "@/lib/arkiv/road-registry";
 import type { RoadPublishInput } from "@/lib/arkiv/road-inputs";
 
 type WalletProvider = EIP1193Provider & {
-  isRabby?: boolean;
   providers?: WalletProvider[];
   on?: (event: "accountsChanged" | "chainChanged", listener: (value: unknown) => void) => void;
   removeListener?: (event: "accountsChanged" | "chainChanged", listener: (value: unknown) => void) => void;
@@ -19,7 +18,9 @@ export type WalletSession = { address: Address; chainId: number; balance: bigint
 
 async function provider(): Promise<WalletProvider> {
   if (typeof window === "undefined" || !window.ethereum) throw new Error("Install a wallet that supports Tiramisu.");
-  return window.ethereum.providers?.find((candidate) => candidate.isRabby) ?? window.ethereum;
+  // Respect the provider selected by the browser. Forcing one extension from
+  // `providers` can silently send the request to a different or locked wallet.
+  return window.ethereum;
 }
 
 export async function getConnectedArkivWallet(): Promise<WalletSession | null> {
@@ -57,7 +58,7 @@ export async function connectArkivWallet(): Promise<WalletSession> {
       await ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: targetChainId }] });
     } catch (error) {
       const code = (error as { code?: number }).code;
-      if (code !== 4902) throw new Error("Approve the Tiramisu network switch in Rabby, then try again.");
+      if (Number(code) !== 4902) throw new Error("Approve the Tiramisu network switch in your wallet, then try again.");
       await ethereum.request({
         method: "wallet_addEthereumChain",
         params: [{
@@ -72,7 +73,7 @@ export async function connectArkivWallet(): Promise<WalletSession> {
     chainHex = String(await ethereum.request({ method: "eth_chainId" }));
   }
   const chainId = Number.parseInt(chainHex, 16);
-  if (chainId !== 7_738_577) throw new Error("Rabby did not switch to Arkiv Tiramisu (chain 7738577).");
+  if (chainId !== 7_738_577) throw new Error("Your wallet did not switch to Arkiv Tiramisu (chain 7738577).");
   const address = getAddress(accounts[0]);
   const balance = BigInt(String(await ethereum.request({ method: "eth_getBalance", params: [address, "latest"] })));
   return { address, chainId, balance };

@@ -23,12 +23,14 @@ import {
 import { CivicTrustRail } from "@/components/civic-trust-rail";
 import { useLanguage } from "@/components/language-provider";
 import { PlaceSuggestionField } from "@/components/place-suggestion-field";
+import type { PlaceSuggestion } from "@/lib/place-suggestions";
 import { INCIDENT_LABELS_I18N } from "@/lib/i18n";
 import { publicIncidentInput } from "@/lib/arkiv/road-inputs";
 import type { RoadArkivRegistry } from "@/lib/arkiv/road-registry";
 import { connectArkivWallet, publishRoadEntity, type WalletSession } from "@/lib/arkiv/wallet";
 import { encryptEvidence, MAX_EVIDENCE_FILE_BYTES } from "@/lib/evidence-capsule";
 import type { IncidentSeverity, IncidentType } from "@/lib/road-demo-data";
+import { cityCodeForPublicArea } from "@/lib/india-status-data";
 
 const incidentOptions: { value: IncidentType; icon: typeof Construction }[] = [
   { value: "pothole", icon: Construction },
@@ -192,6 +194,7 @@ export function CitizenReportFlow() {
   const [incidentType, setIncidentType] = useState<IncidentType>("pothole");
   const [severity, setSeverity] = useState<IncidentSeverity>("high");
   const [location, setLocation] = useState("");
+  const [selectedPlace, setSelectedPlace] = useState<PlaceSuggestion | null>(null);
   const [description, setDescription] = useState("");
   const [exactLocation, setExactLocation] = useState("");
   const [privateNotes, setPrivateNotes] = useState("");
@@ -249,11 +252,13 @@ export function CitizenReportFlow() {
       }
       const result = await publishRoadEntity(activeSession, publicIncidentInput({
         incidentId,
-        cityCode: "BLR",
-        zoneCode: "BLR-PUBLIC",
+        cityCode: selectedPlace?.cityCode ?? cityCodeForPublicArea(location),
+        zoneCode: `${selectedPlace?.cityCode ?? cityCodeForPublicArea(location)}-PUBLIC`,
         incidentType,
         severity,
         publicArea: location.trim().slice(0, 120),
+        publicLatitude: selectedPlace?.latitude != null ? Math.round(selectedPlace.latitude * 100) / 100 : null,
+        publicLongitude: selectedPlace?.longitude != null ? Math.round(selectedPlace.longitude * 100) / 100 : null,
         description: description.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 360),
         evidenceDigest,
         evidenceCapsuleId,
@@ -369,7 +374,7 @@ export function CitizenReportFlow() {
 
             <div>
               <label htmlFor="report-location" className="text-sm font-bold">{copy.roadArea} <span className="font-normal text-muted-foreground">({copy.required})</span></label>
-              <div className="mt-2"><PlaceSuggestionField id="report-location" value={location} onChange={setLocation} required /></div>
+              <div className="mt-2"><PlaceSuggestionField id="report-location" value={location} onChange={setLocation} onPlaceSelect={setSelectedPlace} required /></div>
               <p className="mt-2 text-xs leading-5 text-muted-foreground">{copy.locationHint}</p>
             </div>
 

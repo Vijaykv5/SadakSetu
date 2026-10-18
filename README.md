@@ -56,7 +56,7 @@ bun run build
 
 The application creates and queries `civic_authority`, `road_incident`, `incident_verification`, `road_work_order`, and `road_resolution` entities on Tiramisu. Citizen reports and institutional actions are signed in the browser by the wallet that becomes Arkiv's `$creator`. Every write requires test GLM from the [Tiramisu faucet](https://hub.arkiv.network/faucet).
 
-The nationwide layer on `/roads` retains clearly labelled synthetic fixtures. Its live report registry and the `/verify` evidence queue read real Arkiv entities and never substitute fixture data.
+The `/roads` map and report registry query live Arkiv entities. City clusters and counts come from each report's public `city_code`; selected suggestions can also publish an approximately one-kilometre map point. Exact coordinates remain encrypted off Arkiv.
 
 ## License
 

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">SadakSetu logo</title>
+  <desc id="desc">A warm yellow civic road mark on an oxblood field.</desc>
+  <rect width="1024" height="1024" rx="224" fill="#FFD28E"/>
+  <rect x="54" y="54" width="916" height="916" rx="182" fill="none" stroke="#160F10" stroke-width="18" opacity="0.2"/>
+  <rect x="88" y="88" width="848" height="848" rx="154" fill="none" stroke="#160F10" stroke-width="7" opacity="0.22"/>
+  <path d="M296 824 414 200M728 824 610 200" fill="none" stroke="#160F10" stroke-width="74" stroke-linecap="round"/>
+  <path d="M512 244v104m0 92v144m0 92v104" fill="none" stroke="#160F10" stroke-width="46" stroke-linecap="round"/>
+</svg>

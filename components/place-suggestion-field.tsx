@@ -22,11 +22,12 @@ type PlaceSuggestionFieldProps = {
   id: string;
   value: string;
   onChange: (value: string) => void;
+  onPlaceSelect?: (place: PlaceSuggestion | null) => void;
   required?: boolean;
   maxLength?: number;
 };
 
-export function PlaceSuggestionField({ id, value, onChange, required, maxLength = 120 }: PlaceSuggestionFieldProps) {
+export function PlaceSuggestionField({ id, value, onChange, onPlaceSelect, required, maxLength = 120 }: PlaceSuggestionFieldProps) {
   const { locale } = useLanguage();
   const copy = COPY[locale];
   const generatedId = useId().replaceAll(":", "");
@@ -37,6 +38,7 @@ export function PlaceSuggestionField({ id, value, onChange, required, maxLength 
 
   function choose(place: PlaceSuggestion) {
     onChange(place.value[locale]);
+    onPlaceSelect?.(place);
     setOpen(false);
     setActiveIndex(0);
   }
@@ -80,7 +82,7 @@ export function PlaceSuggestionField({ id, value, onChange, required, maxLength 
         onFocus={() => { setOpen(true); setActiveIndex(0); }}
         onClick={() => setOpen(true)}
         onKeyDown={handleKeyDown}
-        onChange={(event) => { onChange(event.target.value); setOpen(true); setActiveIndex(0); }}
+        onChange={(event) => { onChange(event.target.value); onPlaceSelect?.(null); setOpen(true); setActiveIndex(0); }}
       />
       <Search aria-hidden="true" className="pointer-events-none absolute right-3 top-3.5 text-muted-foreground" size={17} />
 

@@ -23,6 +23,8 @@ export function publicIncidentInput(input: {
   incidentType: string;
   severity: string;
   publicArea: string;
+  publicLatitude?: number | null;
+  publicLongitude?: number | null;
   description: string;
   evidenceDigest?: string | null;
   evidenceCapsuleId?: string | null;
@@ -42,6 +44,9 @@ export function publicIncidentInput(input: {
     ],
     payload: {
       publicArea: input.publicArea,
+      publicLatitude: input.publicLatitude ?? null,
+      publicLongitude: input.publicLongitude ?? null,
+      publicLocationPrecision: input.publicLatitude != null && input.publicLongitude != null ? "approximately-1km" : "city",
       description: input.description,
       evidenceDigest: input.evidenceDigest ?? null,
       evidenceCapsuleId: input.evidenceCapsuleId ?? null,
