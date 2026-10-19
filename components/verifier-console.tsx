@@ -27,18 +27,18 @@ type PrivateIncident = {
 
 const COPY = {
   en: {
-    eyebrow: "Private verification desk", title: "Inspect the evidence without publishing it.", intro: "An allowlisted authority wallet signs a short access request. The evidence service decrypts the capsule only after verifying that signature; private details are never copied into Arkiv.",
+    eyebrow: "Private verification desk", title: "Inspect the evidence without publishing it.", intro: "An allowlisted authority wallet signs a short access request. The evidence service retrieves short-lived Arkiv ciphertext and decrypts it only after verifying that signature; plaintext details are never published.",
     connect: "Connect authority wallet", connecting: "Connecting", connected: "Authority wallet connected", unauthorized: "This wallet is not authorised", unauthorizedHelp: "Switch to a wallet listed in the SadakSetu authority allowlist, then connect again.", ready: "Authorized evidence access", readyHelp: "Your wallet will ask for a message signature before restricted evidence is decrypted.",
     loading: "Loading encrypted evidence queue", error: "The evidence queue could not be loaded.", empty: "No encrypted evidence is waiting", emptyBody: "Reports with private evidence will appear here after their Arkiv transaction confirms.",
     queue: "Encrypted evidence queue", restricted: "Verifier-only evidence", locked: "Evidence remains locked", lockedBody: "Connect the matching authority wallet and decrypt only for a legitimate review purpose.", decrypt: "Decrypt evidence", decrypting: "Decrypting", exact: "Exact location", notes: "Private notes", captured: "Captured", noNotes: "No private notes supplied", media: "Private media", noMedia: "No media supplied",
-    publicRecord: "Public Arkiv record", verify: "Publish verification", verifying: "Publishing", verified: "Verification published", privacy: "The temporary vault stores only Arkiv Encryption ciphertext. Decryption requires a fresh authority-wallet signature.",
+    publicRecord: "Public Arkiv record", verify: "Publish verification", verifying: "Publishing", verified: "Verification published", privacy: "Arkiv stores only short-lived Arkiv Encryption ciphertext. Decryption requires a fresh authority-wallet signature.",
   },
   hi: {
-    eyebrow: "निजी सत्यापन डेस्क", title: "सबूत को सार्वजनिक किए बिना जाँचें।", intro: "अनुमति-प्राप्त प्राधिकरण वॉलेट एक छोटा एक्सेस अनुरोध साइन करता है। हस्ताक्षर सत्यापित होने के बाद ही सबूत सेवा कैप्सूल डिक्रिप्ट करती है; निजी विवरण Arkiv में कॉपी नहीं होते।",
+    eyebrow: "निजी सत्यापन डेस्क", title: "सबूत को सार्वजनिक किए बिना जाँचें।", intro: "अनुमति-प्राप्त प्राधिकरण वॉलेट एक छोटा एक्सेस अनुरोध साइन करता है। हस्ताक्षर सत्यापित होने के बाद ही सेवा Arkiv पर रखे अल्पकालिक ciphertext को डिक्रिप्ट करती है; plaintext विवरण कभी प्रकाशित नहीं होते।",
     connect: "प्राधिकरण वॉलेट जोड़ें", connecting: "जुड़ रहा है", connected: "प्राधिकरण वॉलेट जुड़ा है", unauthorized: "यह वॉलेट अधिकृत नहीं है", unauthorizedHelp: "SadakSetu प्राधिकरण सूची वाला वॉलेट चुनें और फिर से जोड़ें।", ready: "सबूत एक्सेस अधिकृत", readyHelp: "सीमित सबूत डिक्रिप्ट होने से पहले आपका वॉलेट संदेश हस्ताक्षर माँगेगा।",
     loading: "एन्क्रिप्टेड सबूत कतार लोड हो रही है", error: "सबूत कतार लोड नहीं हो सकी।", empty: "कोई एन्क्रिप्टेड सबूत प्रतीक्षा में नहीं है", emptyBody: "निजी सबूत वाली रिपोर्ट Arkiv लेनदेन की पुष्टि के बाद यहाँ दिखेगी।",
     queue: "एन्क्रिप्टेड सबूत कतार", restricted: "केवल सत्यापक के लिए", locked: "सबूत लॉक है", lockedBody: "मिलान वाला प्राधिकरण वॉलेट जोड़ें और केवल वैध जाँच के लिए डिक्रिप्ट करें।", decrypt: "सबूत डिक्रिप्ट करें", decrypting: "डिक्रिप्ट हो रहा है", exact: "सटीक स्थान", notes: "निजी टिप्पणियाँ", captured: "कैप्चर समय", noNotes: "कोई निजी टिप्पणी नहीं", media: "निजी मीडिया", noMedia: "कोई मीडिया नहीं",
-    publicRecord: "सार्वजनिक Arkiv रिकॉर्ड", verify: "सत्यापन प्रकाशित करें", verifying: "प्रकाशित हो रहा है", verified: "सत्यापन प्रकाशित हुआ", privacy: "अस्थायी वॉल्ट केवल Arkiv Encryption ciphertext रखता है। डिक्रिप्शन के लिए नया प्राधिकरण-वॉलेट हस्ताक्षर चाहिए।",
+    publicRecord: "सार्वजनिक Arkiv रिकॉर्ड", verify: "सत्यापन प्रकाशित करें", verifying: "प्रकाशित हो रहा है", verified: "सत्यापन प्रकाशित हुआ", privacy: "Arkiv पर केवल अल्पकालिक Arkiv Encryption ciphertext रहता है। डिक्रिप्शन के लिए नया प्राधिकरण-वॉलेट हस्ताक्षर चाहिए।",
   },
 } as const;
 
@@ -53,8 +53,10 @@ function privateIncidents(registry: RoadArkivRegistry | null) {
     const type = attr(record, "incident_type");
     const severity = attr(record, "severity");
     const capsuleId = payload(record, "evidenceCapsuleId");
-    if (!isType(type) || !isSeverity(severity) || !capsuleId) return [];
-    return [{ key: record.key, id: attr(record, "incident_id"), type, severity, publicArea: payload(record, "publicArea"), description: payload(record, "description") || `${type} report`, capsuleId, evidenceDigest: payload(record, "evidenceDigest") }];
+    const evidenceDigest = payload(record, "evidenceDigest");
+    const evidenceStorage = payload(record, "evidenceStorage");
+    if (!isType(type) || !isSeverity(severity) || !capsuleId || !evidenceDigest || evidenceStorage !== "arkiv-expiring-ciphertext") return [];
+    return [{ key: record.key, id: attr(record, "incident_id"), type, severity, publicArea: payload(record, "publicArea"), description: payload(record, "description") || `${type} report`, capsuleId, evidenceDigest }];
   });
 }
 
@@ -88,11 +90,11 @@ export function VerifierConsole() {
     setBusy("decrypt"); setError(""); setPrivateEvidence(null);
     try {
       const requestedAt = Date.now();
-      const signature = await signArkivMessage(session, evidenceAccessMessage(selected.capsuleId, requestedAt));
+      const signature = await signArkivMessage(session, evidenceAccessMessage(selected.capsuleId, selected.evidenceDigest, requestedAt));
       const response = await fetch("/api/evidence", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: selected.capsuleId, address: session.address, requestedAt, signature }),
+        body: JSON.stringify({ id: selected.capsuleId, commitment: selected.evidenceDigest, address: session.address, requestedAt, signature }),
       });
       const evidence = await response.json() as PrivateEvidence & { error?: string };
       if (!response.ok) throw new Error(evidence.error ?? "Encrypted evidence is unavailable.");
@@ -129,7 +131,7 @@ export function VerifierConsole() {
                 {error ? <div className="border-t border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive" role="alert">{error}</div> : null}</div> : null}
             </section>}
 
-      <section className="mt-8 grid gap-4 md:grid-cols-3"><div className="panel p-5"><ShieldCheck aria-hidden="true" className="text-primary" size={20} /><h2 className="mt-4 font-bold">Role-gated</h2><p className="mt-2 text-sm text-muted-foreground">Only a wallet in the authority allowlist can request decrypted evidence.</p></div><div className="panel p-5"><LockKeyhole aria-hidden="true" className="text-primary" size={20} /><h2 className="mt-4 font-bold">Encrypted at rest</h2><p className="mt-2 text-sm text-muted-foreground">The temporary vault stores AES-GCM ciphertext created by Arkiv Encryption.</p></div><div className="panel p-5"><BadgeCheck aria-hidden="true" className="text-primary" size={20} /><h2 className="mt-4 font-bold">Public result</h2><p className="mt-2 text-sm text-muted-foreground">The verification is signed and published separately without copying private evidence.</p></div></section>
+      <section className="mt-8 grid gap-4 md:grid-cols-3"><div className="panel p-5"><ShieldCheck aria-hidden="true" className="text-primary" size={20} /><h2 className="mt-4 font-bold">Role-gated</h2><p className="mt-2 text-sm text-muted-foreground">Only a wallet in the authority allowlist can request decrypted evidence.</p></div><div className="panel p-5"><LockKeyhole aria-hidden="true" className="text-primary" size={20} /><h2 className="mt-4 font-bold">Encrypted at rest</h2><p className="mt-2 text-sm text-muted-foreground">Arkiv stores AES-GCM ciphertext in read-only entities with an approximately 24-hour lifetime.</p></div><div className="panel p-5"><BadgeCheck aria-hidden="true" className="text-primary" size={20} /><h2 className="mt-4 font-bold">Public result</h2><p className="mt-2 text-sm text-muted-foreground">The verification is signed and published separately without copying plaintext evidence.</p></div></section>
     </div>
   );
 }

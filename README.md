@@ -32,7 +32,7 @@
 
 | Citizen reporting | Privacy boundary | Public accountability | India-wide discovery |
 | --- | --- | --- | --- |
-| One wallet-approved Arkiv write | Exact evidence encrypted off Arkiv | Linked, read-only action records | Live reports grouped on an India map |
+| One wallet-approved Arkiv write | Exact evidence encrypted before Arkiv | Linked, read-only action records | Live reports grouped on an India map |
 
 ## Road complaints should not disappear into a ticket number
 
@@ -73,11 +73,12 @@ SadakSetu is private by data minimisation, not by pretending that a public walle
 - the signing wallet as Arkiv's `$creator`;
 - a coarse road area or public junction;
 - incident category, severity, and public status;
+- short-lived encrypted evidence chunks;
 - evidence commitments and linked entity keys;
 - institutional verification, assignment, and resolution history;
 - creation flags and expiration blocks.
 
-### Encrypted off Arkiv
+### Never plaintext on Arkiv
 
 - precise latitude and longitude;
 - original photos or videos and their metadata;
@@ -85,25 +86,26 @@ SadakSetu is private by data minimisation, not by pretending that a public walle
 - restricted verifier notes;
 - medical or emergency details.
 
-Restricted evidence is encrypted by the temporary evidence service with `arkiv-encryption@0.1.0` (AES-256-GCM) before it is stored. Large evidence payloads are split into independently authenticated package envelopes. A fresh authority-wallet signature and the server-side authority allowlist are required before the service decrypts a capsule. Capsules expire after at most 24 hours. Arkiv receives an opaque capsule ID and a SHA-256 commitment, never the plaintext or encryption key.
+Restricted evidence is encrypted by the evidence service with `arkiv-encryption@0.1.0` (AES-256-GCM) before publication. Large evidence payloads are split into independently authenticated envelopes, and one wallet-approved Arkiv batch atomically creates the short-lived ciphertext entities and the public incident. A fresh authority-wallet signature and the server-side authority allowlist are required before the service queries and decrypts a capsule. The ciphertext entities use an approximately 24-hour block lifetime. Arkiv receives ciphertext, an opaque capsule ID, and a SHA-256 commitment—never plaintext or the encryption key. Expiration removes the entities from normal queries; it is lifecycle management, not a confidentiality or guaranteed-deletion mechanism.
 
 The wallet that publishes a report is visible on Arkiv. The interface discloses this before signing; users should not use an address whose public linkage they do not accept.
 
 ## How Arkiv is used
 
-SadakSetu uses Arkiv as the public coordination layer rather than as storage for personal evidence.
+SadakSetu uses Arkiv as the public coordination layer and a short-lived store for encrypted evidence—not as plaintext storage for personal evidence.
 
 | Entity | Purpose | Lifetime | Public extension |
 | --- | --- | ---: | :---: |
 | `civic_authority` | Publishes an institution's public identity and operational role. | 365 days | No |
 | `road_incident` | Records the privacy-safe incident snapshot. | 30 days | Yes |
+| `private_evidence_capsule` | Stores one independently authenticated ciphertext chunk. | ~24 hours | No |
 | `incident_verification` | Records an institutional verification decision. | 180 days | Yes |
 | `road_work_order` | Assigns responsibility and a service target. | 90 days | No |
 | `road_resolution` | Records completion without replacing the earlier history. | 365 days | Yes |
 
 Every entity is created with `readonly: true`. Reports, verifications, and resolutions also use `permissionlessExtension: true`, allowing the public to preserve a still-relevant accountability record without gaining permission to change it. Work orders and authority profiles remain owner-controlled.
 
-The public API queries all five entity types at one Arkiv block, giving the UI a consistent lifecycle snapshot. If the primary RPC query quota is unavailable, it can fall back to Arkiv's experimental public index and clearly marks the response as incomplete.
+The public API queries the five public lifecycle entity types at one Arkiv block, giving the UI a consistent lifecycle snapshot. The verifier separately queries active `private_evidence_capsule` ciphertext after an allowlisted wallet signs an access request. If the primary RPC query quota is unavailable, the public registry can fall back to Arkiv's experimental public index and clearly marks the response as incomplete; ciphertext decryption requires the primary RPC payload query.
 
 The complete field-level design is documented in [`arkiv/schema.md`](arkiv/schema.md).
 
@@ -148,7 +150,8 @@ SADAKSETU_EVIDENCE_KEY=YOUR_64_CHARACTER_HEX_KEY_WITHOUT_0x
 
 This must be an independent encryption key, not a wallet private key or seed.
 When it is omitted during local development, the app generates an in-memory
-key that lasts for the same process lifetime as the in-memory evidence vault.
+key. Restarting then makes existing Arkiv ciphertext undecryptable, so configure
+a stable key before creating evidence that must survive a server restart.
 
 An Arkiv access key is optional but recommended for repeated server-side queries:
 
@@ -226,7 +229,8 @@ A successful walkthrough produces real Tiramisu transaction hashes, independentl
 | Block-scoped Arkiv reads | [`app/api/arkiv/roads/route.ts`](app/api/arkiv/roads/route.ts) |
 | Citizen reporting flow | [`components/citizen-report-flow.tsx`](components/citizen-report-flow.tsx) |
 | Authority lifecycle console | [`components/road-arkiv-console.tsx`](components/road-arkiv-console.tsx) |
-| Encrypted evidence capsule | [`lib/evidence-capsule.ts`](lib/evidence-capsule.ts) |
+| Encrypted evidence capsule preparation | [`lib/evidence-capsule.ts`](lib/evidence-capsule.ts) |
+| Arkiv evidence encryption and retrieval | [`app/api/evidence/route.ts`](app/api/evidence/route.ts) |
 
 ## Technology
 
@@ -251,7 +255,7 @@ bun run build
 
 SadakSetu is a public prototype. It does not contact a municipality, police service, ambulance, road contractor, or emergency responder. For an active accident or medical emergency in India, call **112 first**.
 
-The encrypted evidence vault is intentionally transient and in-memory. It demonstrates the privacy boundary but is not a production evidence service. The cryptographic design has not been independently audited.
+Encrypted evidence is published as short-lived Arkiv ciphertext. This demonstrates a stateless verification flow, but ciphertext is publicly readable and Arkiv expiration is not guaranteed historical deletion. The cryptographic design has not been independently audited.
 
 ## Project documents
 

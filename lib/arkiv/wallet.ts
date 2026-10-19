@@ -1,11 +1,18 @@
 "use client";
 
-import { createWalletClient, ExpirationTime, jsonToPayload } from "@arkiv-network/sdk";
+import { createWalletClient, ExpirationTime, jsonToPayload, type CreateEntityParameters } from "@arkiv-network/sdk";
 import { str, u64 } from "@arkiv-network/sdk/attr";
 import { tiramisu } from "@arkiv-network/sdk/chains";
 import { custom, getAddress, type Address, type EIP1193Provider } from "viem";
 import { roadCreationPolicyFor } from "@/lib/arkiv/road-registry";
 import type { RoadPublishInput } from "@/lib/arkiv/road-inputs";
+import {
+  base64ToEvidenceBytes,
+  EVIDENCE_CONTENT_TYPE,
+  EVIDENCE_ENTITY_TYPE,
+  EVIDENCE_LIFETIME_HOURS,
+  type EvidenceCapsuleDraft,
+} from "@/lib/evidence-capsule";
 
 type WalletProvider = EIP1193Provider & {
   providers?: WalletProvider[];
@@ -97,18 +104,57 @@ async function validatedProvider(session: WalletSession) {
 export async function publishRoadEntity(session: WalletSession, input: RoadPublishInput) {
   const ethereum = await validatedProvider(session);
   const client = createWalletClient({ chain: tiramisu, account: session.address, transport: custom(ethereum) });
+  return client.createEntity(roadEntityCreate(input));
+}
+
+function roadEntityCreate(input: RoadPublishInput): CreateEntityParameters {
   const attributes = Object.fromEntries(input.attributes.map((attribute) => [
     attribute.name,
     attribute.type === "u64" ? u64(attribute.value) : str(String(attribute.value)),
   ]));
   const policy = roadCreationPolicyFor(input.entityType);
-  return client.createEntity({
+  return {
     attributes: { entity_type: str(input.entityType), ...attributes },
     payload: jsonToPayload(input.payload),
     contentType: "application/json",
     expires: ExpirationTime.fromDays(policy.days),
     flags: policy.flags,
-  });
+  };
+}
+
+export async function publishRoadReport(
+  session: WalletSession,
+  input: RoadPublishInput,
+  capsule: EvidenceCapsuleDraft | null,
+) {
+  if (!capsule) return publishRoadEntity(session, input);
+  if (input.entityType !== "road_incident") throw new Error("Encrypted evidence can only be attached to a road incident.");
+  const incidentId = input.attributes.find((attribute) => attribute.name === "incident_id")?.value;
+  if (incidentId !== capsule.incidentId) throw new Error("The encrypted evidence does not match this road incident.");
+
+  const ethereum = await validatedProvider(session);
+  const client = createWalletClient({ chain: tiramisu, account: session.address, transport: custom(ethereum) });
+  const chunkCount = capsule.ciphertextChunks.length;
+  const evidenceCreates: CreateEntityParameters[] = capsule.ciphertextChunks.map((chunk, chunkIndex) => ({
+    attributes: {
+      entity_type: str(EVIDENCE_ENTITY_TYPE),
+      capsule_id: str(capsule.id),
+      incident_id: str(capsule.incidentId),
+      chunk_index: u64(chunkIndex),
+      chunk_count: u64(chunkCount),
+      commitment: str(capsule.digest),
+    },
+    payload: base64ToEvidenceBytes(chunk),
+    contentType: EVIDENCE_CONTENT_TYPE,
+    expires: ExpirationTime.fromHours(EVIDENCE_LIFETIME_HOURS),
+    flags: { readonly: true, permissionlessExtension: false },
+  }));
+  const result = await client.executeBatch({ creates: [...evidenceCreates, roadEntityCreate(input)] });
+  const entityKey = result.createdEntities.at(-1);
+  if (!entityKey || result.createdEntities.length !== evidenceCreates.length + 1) {
+    throw new Error("The Arkiv transaction confirmed without the expected evidence and incident entities.");
+  }
+  return { entityKey, txHash: result.txHash };
 }
 
 export async function signArkivMessage(session: WalletSession, message: string) {

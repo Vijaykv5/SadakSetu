@@ -17,7 +17,7 @@ No private keys, access keys, personal information or credential-bearing URLs ar
 
 ### Typed entities and explicit creation policies
 
-The SDK made it straightforward to turn the civic workflow into five entity types: `civic_authority`, `road_incident`, `incident_verification`, `road_work_order` and `road_resolution`. Typed attributes are used for fields the interface must query, while JSON payloads hold public display details.
+The SDK made it straightforward to turn the civic workflow into five public lifecycle entity types: `civic_authority`, `road_incident`, `incident_verification`, `road_work_order` and `road_resolution`. A sixth, short-lived `private_evidence_capsule` entity carries ciphertext only. Typed attributes are used for fields the interface must query, while JSON payloads hold public display details.
 
 Entity Expiration and creation flags were especially useful because the policy can be expressed per entity type instead of being implied by application code. Every record is read-only, while public-interest records selectively allow permissionless lifetime extension.
 
@@ -132,7 +132,7 @@ Arkiv query results provided the entity key, `$creator`, `$owner`, creation bloc
 - **Attributes versus payload:** Fields used for discovery and filtering are typed attributes. Human-readable descriptions and linked metadata are payload fields. Private data is never placed in either.
 - **Expiration:** Incident and workflow entities receive different lifetimes. Expiration is treated as lifecycle management, not deletion, confidentiality or a privacy guarantee.
 - **Ownership and extension:** All entities are read-only. Public-interest records allow permissionless lifetime extension, while authority profiles and work orders remain owner-controlled.
-- **Privacy boundary:** Exact coordinates, original media and verifier notes are encrypted off Arkiv. Arkiv receives coarse location, category, severity, evidence commitments and the public response history.
+- **Privacy boundary:** Exact coordinates, original media and verifier notes are encrypted before Arkiv publication. Arkiv receives short-lived ciphertext, coarse location, category, severity, evidence commitments and the public response history, but never the plaintext or encryption key.
 - **Most valuable improvement:** Make rate-limit behavior fail fast and typed by default, with one clear guide covering anonymous quotas, access-key configuration and retry strategy.
 
 ## Evidence limits

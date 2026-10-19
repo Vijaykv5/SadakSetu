@@ -27,8 +27,8 @@ import { PlaceSuggestionField } from "@/components/place-suggestion-field";
 import type { PlaceSuggestion } from "@/lib/place-suggestions";
 import { INCIDENT_LABELS_I18N } from "@/lib/i18n";
 import { publicIncidentInput } from "@/lib/arkiv/road-inputs";
-import { connectArkivWallet, publishRoadEntity, type WalletSession } from "@/lib/arkiv/wallet";
-import { MAX_EVIDENCE_FILE_BYTES, preparePrivateEvidence } from "@/lib/evidence-capsule";
+import { connectArkivWallet, publishRoadReport, type WalletSession } from "@/lib/arkiv/wallet";
+import { isEvidenceCapsuleDraft, MAX_EVIDENCE_FILE_BYTES, preparePrivateEvidence, type EvidenceCapsuleDraft } from "@/lib/evidence-capsule";
 import type { IncidentSeverity, IncidentType } from "@/lib/road-demo-data";
 import { publicLocationCodes } from "@/lib/india-status-data";
 
@@ -46,7 +46,7 @@ const COPY = {
   en: {
     createdEyebrow: "Arkiv report created",
     createdTitle: "Your signed road report is now on Arkiv.",
-    createdBody: "Your wallet created a read-only incident entity on Tiramisu. The public record contains the signing address and privacy-safe road details, but no name, phone number, exact coordinates, or original evidence.",
+    createdBody: "Your wallet created read-only evidence and incident entities on Tiramisu. Arkiv contains encrypted evidence bytes, the signing address, and privacy-safe road details—but no plaintext exact coordinates, private notes, or original media.",
     receipt: "Receipt",
     publicCategory: "Public category",
     publicArea: "Public area",
@@ -88,15 +88,15 @@ const COPY = {
     descriptionPlaceholder: "Example: The pothole spans most of the left lane after the bus stop.",
     descriptionHint: "This is public. Do not add names, faces, vehicle numbers, or medical details.",
     privateSection: "Private evidence capsule",
-    privateSectionHint: "The evidence service immediately encrypts these details with Arkiv Encryption. Arkiv receives only a commitment and an opaque capsule ID.",
+    privateSectionHint: "The evidence service immediately encrypts these details with Arkiv Encryption. Arkiv stores only the ciphertext, its commitment, and an opaque capsule ID for approximately 24 hours.",
     exactLocation: "Exact location for the verifier",
     exactLocationPlaceholder: "Example: beside gate 3, 12.9121, 77.6446",
     privateNotes: "Private verifier notes",
     privateNotesPlaceholder: "Vehicle number, victim detail, access instructions, or another sensitive fact",
     optionalEvidence: "Private photo or video",
     chooseMedia: "Choose a photo or short video",
-    mediaHint: "Encrypted before temporary storage · maximum 1 MB · automatically expires after 24 hours",
-    consent: "I understand that the privacy-safe fields and my signing wallet address become public on Tiramisu. Exact location, private notes, and media are encrypted for the verifier and kept off Arkiv.",
+    mediaHint: "Encrypted before publication · maximum 1 MB · Arkiv expiry is approximately 24 hours",
+    consent: "I understand that the privacy-safe fields, encrypted evidence bytes, and my signing wallet address become public on Tiramisu. Exact location, private notes, and media remain encrypted for an authorised verifier.",
     noIdentity: "No name or phone requested · wallet address is public",
     connectWallet: "Connect reporting wallet",
     connectingWallet: "Connecting wallet",
@@ -104,7 +104,7 @@ const COPY = {
     changeWallet: "Refresh wallet",
     needsFunds: "Needs test GLM",
     getFunds: "Open faucet",
-    walletNotice: "Creating the report opens one wallet approval. The transaction creates the Arkiv entity; it does not merely sign a private message.",
+    walletNotice: "Creating the report opens one wallet approval. One Arkiv transaction atomically publishes the short-lived encrypted evidence and the public incident record.",
     creating: "Publishing to Arkiv",
     create: "Publish road report",
     connectAndCreate: "Connect and publish road report",
@@ -226,6 +226,7 @@ export function CitizenReportFlow() {
       let evidenceDigest: string | null = null;
       let evidenceCapsuleId: string | null = null;
       let evidenceExpiresAt: string | null = null;
+      let evidenceCapsule: EvidenceCapsuleDraft | null = null;
       if (exactLocation.trim() || privateNotes.trim() || evidenceFile) {
         const privateEvidence = await preparePrivateEvidence({
           incidentId,
@@ -239,10 +240,14 @@ export function CitizenReportFlow() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(privateEvidence),
         });
-        const capsule = await capsuleResponse.json() as { id?: string; expiresAt?: string; digest?: string; error?: string };
-        if (!capsuleResponse.ok || !capsule.id || !capsule.expiresAt || !capsule.digest) {
-          throw new Error(capsule.error ?? "The encrypted evidence capsule could not be stored.");
+        const capsule = await capsuleResponse.json() as unknown;
+        if (!capsuleResponse.ok || !isEvidenceCapsuleDraft(capsule)) {
+          const error = capsule && typeof capsule === "object" && "error" in capsule && typeof capsule.error === "string"
+            ? capsule.error
+            : "The encrypted evidence capsule could not be prepared.";
+          throw new Error(error);
         }
+        evidenceCapsule = capsule;
         evidenceDigest = capsule.digest;
         evidenceCapsuleId = capsule.id;
         evidenceExpiresAt = capsule.expiresAt;
@@ -255,7 +260,7 @@ export function CitizenReportFlow() {
           ? "approximately-1km" as const
           : selectedPlace.kind === "state" ? "state" as const : "city" as const
         : fallbackLocation.precision;
-      const result = await publishRoadEntity(activeSession, publicIncidentInput({
+      const result = await publishRoadReport(activeSession, publicIncidentInput({
         incidentId,
         cityCode,
         stateCode,
@@ -270,7 +275,7 @@ export function CitizenReportFlow() {
         evidenceDigest,
         evidenceCapsuleId,
         evidenceExpiresAt,
-      }));
+      }), evidenceCapsule);
       setReceipt({ incidentId, entityKey: result.entityKey, txHash: result.txHash, creator: activeSession.address });
       setStatus("done");
     } catch (cause) {

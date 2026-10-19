@@ -4,7 +4,7 @@ Network: Tiramisu (`7738577`)
 SDK: `@arkiv-network/sdk@0.8.1`  
 Implementation status: implemented by the wallet-backed citizen form on `/report`, the wallet-backed authority console on `/operations`, and the block-scoped `/api/arkiv/roads` read route.
 
-SadakSetu uses Arkiv for public civic coordination and accountability. Arkiv must never contain a reporter's real-world identity, exact private coordinates, original media, IP address, device fingerprint, contact detail, or private verifier note. The wallet that signs a report is necessarily public as Arkiv's `$creator`, so the interface discloses that before signing. Entity Expiration is lifecycle management, not deletion or a privacy control.
+SadakSetu uses Arkiv for public civic coordination and accountability. Arkiv must never contain a reporter's real-world identity, exact private coordinates, original media, IP address, device fingerprint, contact detail, or private verifier note as plaintext. Restricted evidence may appear only as authenticated ciphertext. The wallet that signs a report is necessarily public as Arkiv's `$creator`, so the interface discloses that before signing. Entity Expiration is lifecycle management, not deletion or a privacy control.
 
 ## Entity types
 
@@ -24,7 +24,7 @@ Creates the public, privacy-safe incident record.
 
 Queryable attributes: `entity_type`, `incident_id`, `city_code`, `state_code`, `zone_code`, `incident_type`, `severity`, `status`, `reported_day`.
 
-Payload: coarse location cell or public junction, human-safe description, corroboration count, encrypted-evidence digest, opaque capsule ID, capsule expiry, privacy-policy version, and creation timestamp. Exact coordinates, private notes, and original evidence stay encrypted off Arkiv.
+Payload: coarse location cell or public junction, human-safe description, corroboration count, encrypted-evidence digest, opaque capsule ID, capsule expiry, privacy-policy version, and creation timestamp. Exact coordinates, private notes, and original evidence are never written to Arkiv as plaintext.
 
 Expiration: 30 nominal days. Creation flags: `readonly: true`, `permissionlessExtension: true`. Anyone may preserve a still-relevant public report without gaining permission to alter it.
 
@@ -39,6 +39,12 @@ Queryable attributes: `entity_type`, `incident_id`, `authority_id`, `decision`, 
 Payload: referenced incident key, verifier role, decision reason code, restricted-evidence digest, signature, and verification timestamp. The verifier institution is public; the citizen is not.
 
 Expiration: 180 nominal days. Creation flags: `readonly: true`, `permissionlessExtension: true`. Auditors may preserve the verification record.
+
+### `private_evidence_capsule`
+
+Stores one independently authenticated AES-256-GCM ciphertext chunk. Queryable attributes: `entity_type`, `capsule_id`, `incident_id`, `chunk_index`, `chunk_count`, and `commitment`. The payload is the raw encrypted envelope; its content type is `application/vnd.arkiv.encrypted.v1`.
+
+Expiration: 24 nominal hours. Creation flags: `readonly: true`, `permissionlessExtension: false`. The ciphertext is publicly readable while queryable, so confidentiality depends on encryption and protection of the independent server key—not on Arkiv access control or expiration.
 
 ### `road_work_order`
 
@@ -68,7 +74,7 @@ SDK duration helpers convert nominal time to block lifetimes. The application mu
 
 ## Privacy boundary
 
-Stored only in encrypted, access-controlled evidence storage:
+Present only inside authenticated ciphertext and never exposed as queryable plaintext:
 
 - precise latitude and longitude;
 - original photo or video;
@@ -79,15 +85,16 @@ Stored only in encrypted, access-controlled evidence storage:
 
 ## Private evidence capsule
 
-When a citizen includes restricted evidence, the temporary evidence service encrypts exact location, private notes, and optional media with `arkiv-encryption@0.1.0` (AES-256-GCM) before storing them. Payloads larger than the package's single-envelope limit are split into independently authenticated encrypted chunks. The independent server key is never derived from a wallet and is never published to Arkiv.
+When a citizen includes restricted evidence, the evidence service encrypts exact location, private notes, and optional media with `arkiv-encryption@0.1.0` (AES-256-GCM) before publication. Payloads larger than the package's single-envelope limit are split into independently authenticated encrypted chunks. The independent server key is never derived from a wallet and is never published to Arkiv.
 
-The `/api/evidence` prototype vault limits request size, stores ciphertext only, disables caching, and automatically expires capsules after at most 24 hours. It is intentionally transient in-memory storage for the public demo, not a production evidence service. Arkiv receives an opaque capsule ID and SHA-256 commitment to the ciphertext, never the plaintext or the decryption key.
+`/api/evidence` limits request size and returns ciphertext chunks for an atomic wallet-approved Arkiv batch containing the evidence entities and public incident. During verification it validates a fresh allowlisted-wallet signature, queries the active chunks by capsule ID, checks their SHA-256 commitment and ordering, and decrypts them with the server-only key. Arkiv expiration is block-based and approximately 24 hours; it is not a guaranteed erasure mechanism.
 
 The verifier connects an allowlisted authority wallet and signs a short-lived evidence-access message. The service verifies the recovered wallet address before decrypting. A successful review creates a separate signed `incident_verification` entity; decrypted evidence is not copied into it.
 
 Written to Arkiv:
 
 - the signing wallet as Arkiv's `$creator`;
+- short-lived AES-256-GCM ciphertext chunks;
 - coarse location or public junction;
 - category, severity, and public status;
 - content digests and linked record keys;
@@ -107,4 +114,4 @@ client.select(selection)
   .fetch();
 ```
 
-The API queries all five entity types at one Arkiv block so the returned registry is internally block-scoped. Product views can additionally apply typed filters for `state_code`, `city_code`, `status`, `incident_type`, `incident_id`, and `$creator`. Payload fields are not queryable.
+The public registry queries the five lifecycle entity types at one Arkiv block so the returned registry is internally block-scoped. Product views can additionally apply typed filters for `state_code`, `city_code`, `status`, `incident_type`, `incident_id`, and `$creator`. The verifier separately queries active `private_evidence_capsule` entities by `entity_type` and `capsule_id` after validating its signed access request. Payload fields are not queryable.

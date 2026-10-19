@@ -56,6 +56,7 @@ export function publicIncidentInput(input: {
       evidenceCapsuleId: input.evidenceCapsuleId ?? null,
       evidenceExpiresAt: input.evidenceExpiresAt ?? null,
       evidenceEncryption: input.evidenceCapsuleId ? "arkiv-encryption@0.1.0/AES-256-GCM" : null,
+      evidenceStorage: input.evidenceCapsuleId ? "arkiv-expiring-ciphertext" : null,
       corroborationCount: 1,
       privacyPolicyVersion: 1,
       createdAt,
