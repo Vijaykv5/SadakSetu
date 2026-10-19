@@ -14,7 +14,7 @@ Identifies an institution permitted to verify incidents or publish road actions.
 
 Queryable attributes: `entity_type`, `authority_id`, `role`, `jurisdiction`, `status`, `key_version`.
 
-Payload: display name, signing address, ECDH P-256 encryption public key, allowed action types, and policy version. The matching non-exportable private key stays in the authority browser's IndexedDB. Owner must match a locally configured institutional address.
+Payload: display name, signing address, allowed action types, and policy version. Owner must match a locally configured institutional address. Evidence encryption is not coupled to this entity.
 
 Expiration: 365 nominal days. Creation flags: `readonly: true`, `permissionlessExtension: false`. The authority owner controls renewal.
 
@@ -22,7 +22,7 @@ Expiration: 365 nominal days. Creation flags: `readonly: true`, `permissionlessE
 
 Creates the public, privacy-safe incident record.
 
-Queryable attributes: `entity_type`, `incident_id`, `city_code`, `zone_code`, `incident_type`, `severity`, `status`, `reported_day`.
+Queryable attributes: `entity_type`, `incident_id`, `city_code`, `state_code`, `zone_code`, `incident_type`, `severity`, `status`, `reported_day`.
 
 Payload: coarse location cell or public junction, human-safe description, corroboration count, encrypted-evidence digest, opaque capsule ID, capsule expiry, privacy-policy version, and creation timestamp. Exact coordinates, private notes, and original evidence stay encrypted off Arkiv.
 
@@ -79,11 +79,11 @@ Stored only in encrypted, access-controlled evidence storage:
 
 ## Private evidence capsule
 
-The implemented prototype generates an ECDH P-256 authority key pair in the browser. Only its public JWK is published in the `civic_authority` entity. When a citizen includes restricted evidence, the browser creates an ephemeral ECDH key, derives an AES-256-GCM key, and encrypts exact location, private notes, and optional media before upload.
+When a citizen includes restricted evidence, the temporary evidence service encrypts exact location, private notes, and optional media with `arkiv-encryption@0.1.0` (AES-256-GCM) before storing them. Payloads larger than the package's single-envelope limit are split into independently authenticated encrypted chunks. The independent server key is never derived from a wallet and is never published to Arkiv.
 
-The `/api/evidence` prototype vault receives ciphertext only, limits the encrypted request size, disables caching, and automatically expires capsules after at most 24 hours. It is intentionally transient in-memory storage for the public demo, not a production evidence service. Arkiv receives an opaque capsule ID and SHA-256 commitment to the ciphertext, never the plaintext or the decryption key.
+The `/api/evidence` prototype vault limits request size, stores ciphertext only, disables caching, and automatically expires capsules after at most 24 hours. It is intentionally transient in-memory storage for the public demo, not a production evidence service. Arkiv receives an opaque capsule ID and SHA-256 commitment to the ciphertext, never the plaintext or the decryption key.
 
-The verifier must connect the authority wallet in the same browser that created the authority key. Decryption happens locally. A successful review creates a separate signed `incident_verification` entity; decrypted evidence is not copied into it.
+The verifier connects an allowlisted authority wallet and signs a short-lived evidence-access message. The service verifies the recovered wallet address before decrypting. A successful review creates a separate signed `incident_verification` entity; decrypted evidence is not copied into it.
 
 Written to Arkiv:
 
@@ -107,4 +107,4 @@ client.select(selection)
   .fetch();
 ```
 
-The API queries all five entity types at one Arkiv block so the returned registry is internally block-scoped. Product views can additionally apply typed filters for `city_code`, `status`, `incident_type`, `incident_id`, and `$creator`. Payload fields are not queryable.
+The API queries all five entity types at one Arkiv block so the returned registry is internally block-scoped. Product views can additionally apply typed filters for `state_code`, `city_code`, `status`, `incident_type`, `incident_id`, and `$creator`. Payload fields are not queryable.

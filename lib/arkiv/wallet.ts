@@ -111,6 +111,12 @@ export async function publishRoadEntity(session: WalletSession, input: RoadPubli
   });
 }
 
+export async function signArkivMessage(session: WalletSession, message: string) {
+  const ethereum = await validatedProvider(session);
+  const client = createWalletClient({ chain: tiramisu, account: session.address, transport: custom(ethereum) });
+  return client.signMessage({ account: session.address, message });
+}
+
 export async function extendRoadEntity(session: WalletSession, entityKey: `0x${string}`, days: number) {
   const ethereum = await validatedProvider(session);
   const client = createWalletClient({ chain: tiramisu, account: session.address, transport: custom(ethereum) });

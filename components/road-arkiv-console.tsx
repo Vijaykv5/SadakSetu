@@ -11,7 +11,6 @@ import {
 } from "@/lib/arkiv/road-inputs";
 import { roadCreationPolicyFor, type RoadEntityType } from "@/lib/arkiv/road-registry";
 import { extendRoadEntity, publishRoadEntity } from "@/lib/arkiv/wallet";
-import { ensureAuthorityEncryptionKey } from "@/lib/evidence-capsule";
 import { useAuthorityWallet } from "@/components/authority-wallet-provider";
 
 type PublishResult = { entityKey: `0x${string}`; txHash: string; expiresAt: bigint };
@@ -38,7 +37,8 @@ export function RoadArkivConsole() {
     if (type === "road_incident") return publicIncidentInput({
       incidentId,
       cityCode: "BLR",
-      zoneCode: "BLR-HSR",
+      stateCode: "KA",
+      zoneCode: "KA-BLR-HSR",
       incidentType: "pothole",
       severity: "high",
       publicArea: "HSR Layout, Bengaluru",
@@ -64,9 +64,7 @@ export function RoadArkivConsole() {
     setBusy(type);
     setError("");
     try {
-      const input = type === "civic_authority"
-        ? civicAuthorityInput(session.address, await ensureAuthorityEncryptionKey(session.address))
-        : inputFor(type);
+      const input = inputFor(type);
       const result = await publishRoadEntity(session, input);
       setResults((current) => ({ ...current, [type]: result }));
     } catch (cause) {
@@ -110,7 +108,7 @@ export function RoadArkivConsole() {
       <div className="border-b border-border bg-secondary/40 p-5 md:px-6">
         <label htmlFor="arkiv-incident-id" className="text-xs font-bold uppercase tracking-[0.12em] text-editorial">Demonstration incident ID</label>
         <input id="arkiv-incident-id" className="field mt-2 max-w-sm font-mono" value={incidentId} onChange={(event) => setIncidentId(event.target.value.slice(0, 40))} autoComplete="off" disabled={Boolean(results.road_incident)} />
-        <p className="mt-2 text-xs text-muted-foreground">Publishing the authority profile creates a non-exportable decryption key in this browser. The public key goes to Arkiv; the private key does not leave this device.</p>
+        <p className="mt-2 text-xs text-muted-foreground">The authority profile identifies the institution on the public timeline. Private evidence access is handled separately through a signed verifier request.</p>
       </div>
 
       <ol className="grid gap-px bg-border md:grid-cols-5">

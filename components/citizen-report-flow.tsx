@@ -14,6 +14,7 @@ import {
   FileCheck2,
   LoaderCircle,
   LockKeyhole,
+  Plus,
   ShieldCheck,
   Siren,
   TrafficCone,
@@ -26,11 +27,10 @@ import { PlaceSuggestionField } from "@/components/place-suggestion-field";
 import type { PlaceSuggestion } from "@/lib/place-suggestions";
 import { INCIDENT_LABELS_I18N } from "@/lib/i18n";
 import { publicIncidentInput } from "@/lib/arkiv/road-inputs";
-import type { RoadArkivRegistry } from "@/lib/arkiv/road-registry";
 import { connectArkivWallet, publishRoadEntity, type WalletSession } from "@/lib/arkiv/wallet";
-import { encryptEvidence, MAX_EVIDENCE_FILE_BYTES } from "@/lib/evidence-capsule";
+import { MAX_EVIDENCE_FILE_BYTES, preparePrivateEvidence } from "@/lib/evidence-capsule";
 import type { IncidentSeverity, IncidentType } from "@/lib/road-demo-data";
-import { cityCodeForPublicArea } from "@/lib/india-status-data";
+import { publicLocationCodes } from "@/lib/india-status-data";
 
 const incidentOptions: { value: IncidentType; icon: typeof Construction }[] = [
   { value: "pothole", icon: Construction },
@@ -52,8 +52,8 @@ const COPY = {
     publicArea: "Public area",
     areaMissing: "Area not provided",
     reporterIdentity: "Signing wallet",
-    another: "Create another report",
-    openExplorer: "Open road explorer",
+    another: "New report",
+    openExplorer: "Road explorer",
     viewEntity: "View entity",
     viewEntityLabel: "Open this public report in Arkiv Data Explorer",
     viewTransaction: "View transaction",
@@ -83,19 +83,19 @@ const COPY = {
     },
     roadArea: "Road or area",
     required: "required",
-    locationHint: "The public view rounds private coordinates to a safe area unless the location is a major public junction.",
+    locationHint: "Public: selected road, city, and state. Exact location stays encrypted for the verifier.",
     verifierKnow: "Public description",
     descriptionPlaceholder: "Example: The pothole spans most of the left lane after the bus stop.",
     descriptionHint: "This is public. Do not add names, faces, vehicle numbers, or medical details.",
     privateSection: "Private evidence capsule",
-    privateSectionHint: "Encrypted in this browser for the registered civic verifier. Arkiv receives only a commitment and an opaque capsule ID.",
+    privateSectionHint: "The evidence service immediately encrypts these details with Arkiv Encryption. Arkiv receives only a commitment and an opaque capsule ID.",
     exactLocation: "Exact location for the verifier",
     exactLocationPlaceholder: "Example: beside gate 3, 12.9121, 77.6446",
     privateNotes: "Private verifier notes",
     privateNotesPlaceholder: "Vehicle number, victim detail, access instructions, or another sensitive fact",
     optionalEvidence: "Private photo or video",
     chooseMedia: "Choose a photo or short video",
-    mediaHint: "Encrypted before upload · maximum 1 MB · automatically expires after 24 hours",
+    mediaHint: "Encrypted before temporary storage · maximum 1 MB · automatically expires after 24 hours",
     consent: "I understand that the privacy-safe fields and my signing wallet address become public on Tiramisu. Exact location, private notes, and media are encrypted for the verifier and kept off Arkiv.",
     noIdentity: "No name or phone requested · wallet address is public",
     connectWallet: "Connect reporting wallet",
@@ -123,9 +123,9 @@ const COPY = {
     publicArea: "सार्वजनिक क्षेत्र",
     areaMissing: "क्षेत्र नहीं दिया गया",
     reporterIdentity: "हस्ताक्षर करने वाला वॉलेट",
-    another: "एक और रिपोर्ट बनाएँ",
-    openExplorer: "सड़क मानचित्र खोलें",
-    viewEntity: "एंटिटी देखें",
+    another: "नई रिपोर्ट",
+    openExplorer: "सड़क एक्सप्लोरर",
+    viewEntity: "Arkiv एंटिटी",
     viewEntityLabel: "इस सार्वजनिक रिपोर्ट को Arkiv Data Explorer में खोलें",
     viewTransaction: "लेनदेन देखें",
     eyebrow: "नागरिक रिपोर्ट डेस्क",
@@ -154,19 +154,19 @@ const COPY = {
     },
     roadArea: "सड़क या क्षेत्र",
     required: "आवश्यक",
-    locationHint: "यदि स्थान कोई प्रमुख सार्वजनिक जंक्शन नहीं है, तो सार्वजनिक दृश्य निजी निर्देशांक को सुरक्षित क्षेत्र तक सीमित करता है।",
+    locationHint: "सार्वजनिक: चुनी हुई सड़क, शहर और राज्य। सटीक स्थान सत्यापक के लिए एन्क्रिप्टेड रहता है।",
     verifierKnow: "सार्वजनिक विवरण",
     descriptionPlaceholder: "उदाहरण: बस स्टॉप के बाद गड्ढा बाईं लेन के अधिकतर हिस्से में फैला है।",
     descriptionHint: "यह सार्वजनिक है। नाम, चेहरे, वाहन नंबर या चिकित्सा विवरण न जोड़ें।",
     privateSection: "निजी सबूत कैप्सूल",
-    privateSectionHint: "इस ब्राउज़र में पंजीकृत नागरिक सत्यापक के लिए एन्क्रिप्ट किया जाता है। Arkiv को केवल कमिटमेंट और अस्पष्ट कैप्सूल ID मिलता है।",
+    privateSectionHint: "सबूत सेवा इन विवरणों को Arkiv Encryption से तुरंत एन्क्रिप्ट करती है। Arkiv को केवल कमिटमेंट और अस्पष्ट कैप्सूल ID मिलता है।",
     exactLocation: "सत्यापक के लिए सटीक स्थान",
     exactLocationPlaceholder: "उदाहरण: गेट 3 के पास, 12.9121, 77.6446",
     privateNotes: "निजी सत्यापक टिप्पणियाँ",
     privateNotesPlaceholder: "वाहन नंबर, पीड़ित विवरण, पहुँच निर्देश या अन्य संवेदनशील तथ्य",
     optionalEvidence: "निजी फोटो या वीडियो",
     chooseMedia: "फोटो या छोटा वीडियो चुनें",
-    mediaHint: "अपलोड से पहले एन्क्रिप्टेड · अधिकतम 1 MB · 24 घंटे बाद स्वतः समाप्त",
+    mediaHint: "अस्थायी स्टोरेज से पहले एन्क्रिप्टेड · अधिकतम 1 MB · 24 घंटे बाद स्वतः समाप्त",
     consent: "मैं समझता हूँ कि गोपनीयता-सुरक्षित जानकारी और मेरे हस्ताक्षर करने वाले वॉलेट का पता Tiramisu पर सार्वजनिक होगा। सटीक स्थान, निजी टिप्पणियाँ और मीडिया सत्यापक के लिए एन्क्रिप्ट होकर Arkiv से बाहर रहते हैं।",
     noIdentity: "नाम या फोन नहीं माँगा जाता · वॉलेट पता सार्वजनिक है",
     connectWallet: "रिपोर्टिंग वॉलेट जोड़ें",
@@ -227,38 +227,45 @@ export function CitizenReportFlow() {
       let evidenceCapsuleId: string | null = null;
       let evidenceExpiresAt: string | null = null;
       if (exactLocation.trim() || privateNotes.trim() || evidenceFile) {
-        const registryResponse = await fetch("/api/arkiv/roads", { cache: "no-store" });
-        const registry = await registryResponse.json() as RoadArkivRegistry;
-        const authority = registry.records.find((record) => (
-          record.type === "civic_authority"
-          && record.recognizedCreator
-          && record.payload.encryptionPublicKey
-          && typeof record.payload.encryptionPublicKey === "object"
-        ));
-        if (!registryResponse.ok || !authority) throw new Error("No recognised civic authority encryption key is available on Arkiv.");
-        const encrypted = await encryptEvidence(authority.creator, authority.payload.encryptionPublicKey as JsonWebKey, {
+        const privateEvidence = await preparePrivateEvidence({
           incidentId,
           exactLocation: exactLocation.trim().slice(0, 240),
           privateNotes: privateNotes.trim().slice(0, 800),
           capturedAt: new Date().toISOString(),
           file: evidenceFile,
         });
-        const capsuleResponse = await fetch("/api/evidence", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(encrypted.envelope) });
-        const capsule = await capsuleResponse.json() as { id?: string; expiresAt?: string; error?: string };
-        if (!capsuleResponse.ok || !capsule.id || !capsule.expiresAt) throw new Error(capsule.error ?? "The encrypted evidence capsule could not be stored.");
-        evidenceDigest = encrypted.digest;
+        const capsuleResponse = await fetch("/api/evidence", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(privateEvidence),
+        });
+        const capsule = await capsuleResponse.json() as { id?: string; expiresAt?: string; digest?: string; error?: string };
+        if (!capsuleResponse.ok || !capsule.id || !capsule.expiresAt || !capsule.digest) {
+          throw new Error(capsule.error ?? "The encrypted evidence capsule could not be stored.");
+        }
+        evidenceDigest = capsule.digest;
         evidenceCapsuleId = capsule.id;
         evidenceExpiresAt = capsule.expiresAt;
       }
+      const fallbackLocation = publicLocationCodes(location);
+      const cityCode = selectedPlace?.cityCode ?? fallbackLocation.cityCode;
+      const stateCode = selectedPlace?.stateCode ?? fallbackLocation.stateCode;
+      const publicLocationPrecision = selectedPlace
+        ? selectedPlace.latitude != null && selectedPlace.longitude != null
+          ? "approximately-1km" as const
+          : selectedPlace.kind === "state" ? "state" as const : "city" as const
+        : fallbackLocation.precision;
       const result = await publishRoadEntity(activeSession, publicIncidentInput({
         incidentId,
-        cityCode: selectedPlace?.cityCode ?? cityCodeForPublicArea(location),
-        zoneCode: `${selectedPlace?.cityCode ?? cityCodeForPublicArea(location)}-PUBLIC`,
+        cityCode,
+        stateCode,
+        zoneCode: `${stateCode}-${cityCode}-PUBLIC`,
         incidentType,
         severity,
         publicArea: location.trim().slice(0, 120),
         publicLatitude: selectedPlace?.latitude != null ? Math.round(selectedPlace.latitude * 100) / 100 : null,
         publicLongitude: selectedPlace?.longitude != null ? Math.round(selectedPlace.longitude * 100) / 100 : null,
+        publicLocationPrecision,
         description: description.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 360),
         evidenceDigest,
         evidenceCapsuleId,
@@ -288,15 +295,15 @@ export function CitizenReportFlow() {
             <div className="bg-card p-5"><dt className="text-xs text-muted-foreground">{copy.publicArea}</dt><dd className="mt-2 font-medium">{location || copy.areaMissing}</dd></div>
             <div className="bg-card p-5"><dt className="text-xs text-muted-foreground">{copy.reporterIdentity}</dt><dd className="mt-2 truncate font-mono text-sm font-medium">{receipt?.creator}</dd></div>
           </dl>
-          <div className="flex flex-col gap-3 p-6 sm:flex-row">
-            <button type="button" className="button-primary" onClick={() => { setStatus("idle"); setReceipt(null); }}>{copy.another}</button>
-            <Link href="/roads" className="button-secondary">{copy.openExplorer} <ArrowRight aria-hidden="true" size={16} /></Link>
+          <div className="flex flex-col gap-3 p-6 sm:flex-row sm:flex-wrap md:flex-nowrap">
+            <button type="button" className="button-primary shrink-0 whitespace-nowrap" onClick={() => { setStatus("idle"); setReceipt(null); }}><Plus aria-hidden="true" size={16} /> {copy.another}</button>
+            <Link href="/roads" className="button-secondary shrink-0 whitespace-nowrap">{copy.openExplorer} <ArrowRight aria-hidden="true" size={16} /></Link>
             {receipt ? (
               <a
                 href={`https://data.arkiv.network/?q=${encodeURIComponent(`$key = key(${receipt.entityKey})`)}`}
                 target="_blank"
                 rel="noreferrer"
-                className="button-secondary"
+                className="button-secondary shrink-0 whitespace-nowrap"
                 aria-label={copy.viewEntityLabel}
               >
                 {copy.viewEntity} <ExternalLink aria-hidden="true" size={16} />
@@ -307,7 +314,7 @@ export function CitizenReportFlow() {
                 href={`https://tiramisu.explorer.arkiv.network/tx/${receipt.txHash}`}
                 target="_blank"
                 rel="noreferrer"
-                className="button-secondary"
+                className="button-secondary shrink-0 whitespace-nowrap"
               >
                 {copy.viewTransaction} <ExternalLink aria-hidden="true" size={16} />
               </a>
@@ -337,7 +344,7 @@ export function CitizenReportFlow() {
             <h2 className="mt-2 text-2xl font-bold tracking-[-0.035em]">{copy.happening}</h2>
           </div>
 
-          <div className="space-y-8 p-5 md:p-6">
+          <div className="space-y-6 p-5 md:p-6">
             <fieldset>
               <legend className="text-sm font-bold">{copy.problemType}</legend>
               <p className="mt-1 text-xs text-muted-foreground">{copy.problemHint}</p>
@@ -373,15 +380,18 @@ export function CitizenReportFlow() {
             </fieldset>
 
             <div>
-              <label htmlFor="report-location" className="text-sm font-bold">{copy.roadArea} <span className="font-normal text-muted-foreground">({copy.required})</span></label>
-              <div className="mt-2"><PlaceSuggestionField id="report-location" value={location} onChange={setLocation} onPlaceSelect={setSelectedPlace} required /></div>
-              <p className="mt-2 text-xs leading-5 text-muted-foreground">{copy.locationHint}</p>
+              <div className="flex items-center justify-between gap-3">
+                <label htmlFor="report-location" className="text-sm font-bold">{copy.roadArea}</label>
+                <span className="rounded-full border border-border px-2 py-1 text-xs font-bold uppercase tracking-wide text-primary">{copy.required}</span>
+              </div>
+              <div className="mt-2"><PlaceSuggestionField id="report-location" value={location} onChange={setLocation} onPlaceSelect={setSelectedPlace} descriptionId="report-location-hint" required /></div>
+              <p id="report-location-hint" className="mt-2 flex items-start gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-xs leading-5 text-muted-foreground"><ShieldCheck aria-hidden="true" className="mt-0.5 shrink-0 text-primary" size={15} />{copy.locationHint}</p>
             </div>
 
             <div>
               <label htmlFor="report-description" className="text-sm font-bold">{copy.verifierKnow}</label>
-              <textarea id="report-description" className="field mt-2 min-h-28 resize-y py-3 leading-6" maxLength={360} value={description} onChange={(event) => setDescription(event.target.value)} placeholder={copy.descriptionPlaceholder} />
-              <p className="mt-2 text-xs text-muted-foreground">{copy.descriptionHint}</p>
+              <textarea id="report-description" className="field mt-2 min-h-24 resize-y py-3 leading-6" maxLength={360} value={description} onChange={(event) => setDescription(event.target.value)} placeholder={copy.descriptionPlaceholder} aria-describedby="report-description-hint" />
+              <p id="report-description-hint" className="mt-2 text-xs leading-5 text-muted-foreground">{copy.descriptionHint}</p>
             </div>
 
             <fieldset className="rounded-xl border border-primary/35 bg-secondary/40 p-5">

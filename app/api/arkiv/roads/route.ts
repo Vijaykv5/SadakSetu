@@ -46,7 +46,7 @@ function parsePayload(entity: { toJson: () => unknown }) {
 function publicAttributes(type: RoadEntityType, attributes: Record<string, unknown>) {
   const names: Record<RoadEntityType, string[]> = {
     civic_authority: ["authority_id", "role", "jurisdiction", "status", "key_version"],
-    road_incident: ["incident_id", "city_code", "zone_code", "incident_type", "severity", "status", "reported_day"],
+    road_incident: ["incident_id", "city_code", "state_code", "zone_code", "incident_type", "severity", "status", "reported_day"],
     incident_verification: ["incident_id", "authority_id", "decision", "severity", "verified_day"],
     road_work_order: ["incident_id", "authority_id", "zone_code", "work_status", "target_day"],
     road_resolution: ["incident_id", "authority_id", "resolution_code", "completed_day"],

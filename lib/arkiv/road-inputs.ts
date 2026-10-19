@@ -19,12 +19,14 @@ export function utcDay(date = new Date()) {
 export function publicIncidentInput(input: {
   incidentId: string;
   cityCode: string;
+  stateCode: string;
   zoneCode: string;
   incidentType: string;
   severity: string;
   publicArea: string;
   publicLatitude?: number | null;
   publicLongitude?: number | null;
+  publicLocationPrecision?: "approximately-1km" | "city" | "state" | "country";
   description: string;
   evidenceDigest?: string | null;
   evidenceCapsuleId?: string | null;
@@ -36,6 +38,7 @@ export function publicIncidentInput(input: {
     attributes: [
       { name: "incident_id", value: input.incidentId, type: "str" },
       { name: "city_code", value: input.cityCode, type: "str" },
+      { name: "state_code", value: input.stateCode, type: "str" },
       { name: "zone_code", value: input.zoneCode, type: "str" },
       { name: "incident_type", value: input.incidentType, type: "str" },
       { name: "severity", value: input.severity, type: "str" },
@@ -46,12 +49,13 @@ export function publicIncidentInput(input: {
       publicArea: input.publicArea,
       publicLatitude: input.publicLatitude ?? null,
       publicLongitude: input.publicLongitude ?? null,
-      publicLocationPrecision: input.publicLatitude != null && input.publicLongitude != null ? "approximately-1km" : "city",
+      publicLocationPrecision: input.publicLocationPrecision
+        ?? (input.publicLatitude != null && input.publicLongitude != null ? "approximately-1km" : "city"),
       description: input.description,
       evidenceDigest: input.evidenceDigest ?? null,
       evidenceCapsuleId: input.evidenceCapsuleId ?? null,
       evidenceExpiresAt: input.evidenceExpiresAt ?? null,
-      evidenceEncryption: input.evidenceCapsuleId ? "ECDH-P256+A256GCM" : null,
+      evidenceEncryption: input.evidenceCapsuleId ? "arkiv-encryption@0.1.0/AES-256-GCM" : null,
       corroborationCount: 1,
       privacyPolicyVersion: 1,
       createdAt,
@@ -59,7 +63,7 @@ export function publicIncidentInput(input: {
   };
 }
 
-export function civicAuthorityInput(address: string, encryptionPublicKey?: JsonWebKey): RoadPublishInput {
+export function civicAuthorityInput(address: string): RoadPublishInput {
   return {
     entityType: "civic_authority",
     attributes: [
@@ -72,8 +76,6 @@ export function civicAuthorityInput(address: string, encryptionPublicKey?: JsonW
     payload: {
       displayName: "SadakSetu Bengaluru civic cell",
       signingAddress: address,
-      encryptionPublicKey: encryptionPublicKey ?? null,
-      encryptionScheme: encryptionPublicKey ? "ECDH-P256+A256GCM" : null,
       allowedActions: ["verify", "assign", "resolve"],
       policyVersion: 1,
     },

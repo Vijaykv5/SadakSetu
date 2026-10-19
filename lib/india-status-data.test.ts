@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { arkivCitiesForMap, projectIndiaCoordinate } from "@/lib/india-status-data";
+import { INDIA_CITIES, arkivCitiesForMap, projectIndiaCoordinate, publicLocationCodes } from "@/lib/india-status-data";
 import type { RoadArkivRecord } from "@/lib/arkiv/road-registry";
 
 function incident(overrides: Partial<RoadArkivRecord> = {}): RoadArkivRecord {
@@ -13,6 +13,10 @@ function incident(overrides: Partial<RoadArkivRecord> = {}): RoadArkivRecord {
 }
 
 describe("Arkiv-backed India map data", () => {
+  test("covers every state and union territory in the boundary map", () => {
+    expect(new Set(INDIA_CITIES.map((city) => city.stateCode)).size).toBe(36);
+  });
+
   test("groups live Arkiv reports by their stored city code", () => {
     const cities = arkivCitiesForMap([incident(), incident({ key: "0x02", attributes: { ...incident().attributes, incident_id: "SS-2" } })]);
     expect(cities).toHaveLength(1);
@@ -29,7 +33,23 @@ describe("Arkiv-backed India map data", () => {
     expect(cities[0].incidents[0].y).toBeCloseTo(expected.y);
   });
 
+  test("keeps state-only reports at state precision", () => {
+    const cities = arkivCitiesForMap([incident({
+      attributes: { ...incident().attributes, city_code: "STATE-KL", state_code: "KL" },
+      payload: { ...incident().payload, publicArea: "Kerala", publicLocationPrecision: "state" },
+    })]);
+    expect(cities).toHaveLength(1);
+    expect(cities[0].name.en).toBe("Kerala");
+    expect(cities[0].incidents[0].locationPrecision).toBe("state");
+  });
+
   test("ignores records whose city code cannot be mapped", () => {
     expect(arkivCitiesForMap([incident({ attributes: { ...incident().attributes, city_code: "UNKNOWN" } })])).toEqual([]);
+  });
+
+  test("resolves cities, states, and unmatched manual locations without falling back to Bengaluru", () => {
+    expect(publicLocationCodes("MG Marg, Gangtok, Sikkim")).toEqual({ cityCode: "GTK", stateCode: "SK", precision: "city" });
+    expect(publicLocationCodes("Some road, Kerala")).toEqual({ cityCode: "STATE-KL", stateCode: "KL", precision: "state" });
+    expect(publicLocationCodes("Uncatalogued location")).toEqual({ cityCode: "IND", stateCode: "IN", precision: "country" });
   });
 });
